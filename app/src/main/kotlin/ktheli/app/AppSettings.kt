@@ -13,11 +13,11 @@ import java.nio.file.StandardCopyOption
 /** Simulator settings that persist between runs (`~/.config/ktheli/settings.json`). */
 @Serializable
 data class AppSettings(
-    val aircraft: String = SimRunner.AircraftType.HELI_450.name,
+    /** [HelicopterModel.id] of the selected model. */
+    val aircraft: String = HelicopterModels.DEFAULT.id,
     val environment: EnvironmentDto = EnvironmentDto(),
 ) {
-    val aircraftType: SimRunner.AircraftType
-        get() = SimRunner.AircraftType.entries.firstOrNull { it.name == aircraft } ?: SimRunner.AircraftType.HELI_450
+    val model: HelicopterModel get() = HelicopterModels.byId(aircraft) ?: HelicopterModels.DEFAULT
 }
 
 /** Serializable mirror of [EnvironmentSettings] (the physics module stays free of serialization). */

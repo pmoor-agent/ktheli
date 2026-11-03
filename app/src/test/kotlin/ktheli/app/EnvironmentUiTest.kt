@@ -40,11 +40,11 @@ class EnvironmentUiTest {
             UiDriver(configDir = dir).use { ui ->
                 ui.press(Keys.F4)
                 ui.click("Environment/High & hot")
-                ui.menu("Aircraft", SimRunner.AircraftType.HELI_450_DISC.label)
+                ui.menu("Aircraft", HelicopterModels.TREX_450_DISC.name)
             }
             UiDriver(configDir = dir).use { ui ->
                 assertEquals(EnvironmentSettings.HIGH_AND_HOT, ui.core.runner.environment)
-                assertEquals(SimRunner.AircraftType.HELI_450_DISC, ui.core.runner.aircraftType)
+                assertEquals(HelicopterModels.TREX_450_DISC, ui.core.runner.model)
                 ui.press(Keys.F4)
                 ui.waitForText("Air density 0.899") // ISA at 2000 m, 35 C
             }

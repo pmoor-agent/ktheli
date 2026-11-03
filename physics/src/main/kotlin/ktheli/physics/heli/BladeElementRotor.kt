@@ -71,6 +71,7 @@ class BladeElementRotor(private val p: MainRotorParams, seed: Long = 1) : MainRo
     override val tiltRight get() = tpRight
     override val coning get() = tpConing
     override val inflow get() = inflowMean
+    override val bladeAzimuth: Double get() = azimuth
 
     private class BladeLoads(
         force: Vec3, hubMoment: Vec3, shaftTorque: Double, thrust: Double, power: Double,

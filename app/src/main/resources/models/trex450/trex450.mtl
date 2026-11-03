@@ -1,0 +1,16 @@
+# Align T-Rex 450 Materials
+newmtl trex450_body
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.350 0.350 0.380
+Ns 64.0
+d 1.0
+map_Kd trex450_atlas.png
+
+newmtl rotor_blur_mat
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.150 0.150 0.150
+Ns 16.0
+d 0.85
+map_Kd rotor_blur.png

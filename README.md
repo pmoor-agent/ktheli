@@ -15,6 +15,23 @@ An RC helicopter simulator in Kotlin, focused on realistic rotor physics rather 
 | `input`   | Axis calibration, channel mapping, device profiles (JSON). No device access. | `physics` |
 | `app`     | libGDX rendering, GLFW joystick polling, HUD, wall-clock → tick bridge. | both |
 
+## Models
+
+A flyable model is a `HelicopterModel` (app) in the `HelicopterModels` registry:
+
+- **`HelicopterSpec`** (physics): the `Airframe` (dimensions, masses, inertia, rotors, motor, battery, ESC,
+  servos, fuselage, skids), the main rotor model (`BLADE_ELEMENT` or `DISC`), the flybarless and tail gyro setup
+  (gyro type, gains, max rates, cyclic phase), and the radio's model memory (flight modes, curves).
+- **`HelicopterVisual`** (app): an OBJ/MTL asset authored in body FRD coordinates (x forward, y right, z down,
+  origin at the CG) with material roles and rotor node names, or procedural boxes. Hub pivots and size come from
+  the spec's airframe, so physics and visuals can't disagree. `RotorBlur` decides how a spinning rotor looks
+  from how far a blade moves per rendered frame: sharp blades when slow, a blur disc when fast. With the blade
+  element rotor, the 3D blades follow the simulated blade azimuth.
+
+Adding a model: put the asset under `app/src/main/resources/models/<id>/`, define a `HelicopterSpec` (usually
+a `copy` of an existing one with a different airframe or setup), and add a `HelicopterModel` to
+`HelicopterModels.ALL`. It then appears in the *Aircraft* menu and persists by id.
+
 ## Helicopter model (`physics/.../heli`)
 
 ```

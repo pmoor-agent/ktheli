@@ -5,9 +5,6 @@ import ktheli.physics.env.Environment
 import ktheli.physics.env.EnvironmentSettings
 import ktheli.physics.math.Quat
 import ktheli.physics.math.Vec3
-import ktheli.physics.heli.Helicopter
-import ktheli.physics.model.AircraftModel
-import ktheli.physics.model.ToyHeli
 import ktheli.physics.sim.Controls
 import ktheli.physics.sim.Simulation
 
@@ -16,17 +13,10 @@ import ktheli.physics.sim.Simulation
  * the simulation itself only ever sees (controls, tick).
  */
 class SimRunner(
-    aircraftType: AircraftType = AircraftType.HELI_450,
+    model: HelicopterModel = HelicopterModels.DEFAULT,
     environment: EnvironmentSettings = EnvironmentSettings.CALM,
 ) {
-    /** The aircraft types the simulator offers; [create] parks a fresh one in front of the pilot. */
-    enum class AircraftType(val label: String, val create: () -> AircraftModel) {
-        HELI_450("450 class - blade element rotor", { Helicopter.bladeElement450(initial = Helicopter.parkedAt(START)) }),
-        HELI_450_DISC("450 class - disc rotor (simpler)", { Helicopter.disc450(initial = Helicopter.parkedAt(START)) }),
-        TOY("Toy heli (no rotor physics)", { ToyHeli(ToyHeli.parkedAt(START)) }),
-    }
-
-    var aircraftType = aircraftType
+    var model = model
         private set
 
     /** Current environment; changing it applies immediately, as a simulation input. */
@@ -45,8 +35,8 @@ class SimRunner(
     /** While paused, wall time is discarded; the simulation simply doesn't tick. */
     var paused = false
 
-    fun select(type: AircraftType) {
-        aircraftType = type
+    fun select(next: HelicopterModel) {
+        model = next
         reset()
     }
 
@@ -86,7 +76,10 @@ class SimRunner(
         return (a * (1 - t) + bb * t).normalized()
     }
 
-    private fun newSim() = Simulation(aircraftType.create(), Environment(environment, seed = ++flights))
+    private fun newSim(): Simulation {
+        val seed = ++flights
+        return Simulation(model.create(START, seed), Environment(environment, seed = seed))
+    }
 
     private companion object {
         const val MAX_FRAME_SECONDS = 0.1 // drop time rather than spiral after a hitch

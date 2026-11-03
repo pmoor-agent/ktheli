@@ -74,11 +74,12 @@ class KtheliApp : ApplicationAdapter() {
         Gdx.gl.glViewport(0, 0, bw, bh)
         Gdx.gl.glClearColor(0.55f, 0.72f, 0.92f, 1f)
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT or GL20.GL_DEPTH_BUFFER_BIT)
-        val rotor = (core.runner.sim.aircraft as? Helicopter)?.let {
-            Scene.RotorView((it.rotorRpm / 2500.0).toFloat(), it.mainRotor.tiltBack, it.mainRotor.tiltRight)
-        } ?: Scene.RotorView(1f)
+        scene.use(core.runner.model)
+        val rotors = (core.runner.sim.aircraft as? Helicopter)?.let {
+            RotorPose(it.rotorRpm, it.tailRotorRpm, it.mainRotor.tiltBack, it.mainRotor.tiltRight, it.mainRotor.bladeAzimuth)
+        } ?: RotorPose(rpm = TOY_ROTOR_RPM, tailRpm = TOY_ROTOR_RPM * 4.5)
         val sockWind = core.runner.sim.environment.windAt(scene.windsockTop)
-        scene.render(core.runner.renderState(), rotor, sockWind, 0, 0, bw, (bh - menuPixels).coerceAtLeast(1))
+        scene.render(core.runner.renderState(), rotors, sockWind, 0, 0, bw, (bh - menuPixels).coerceAtLeast(1))
         Gdx.gl.glViewport(0, 0, bw, bh)
 
         imgui.endFrame()
@@ -111,5 +112,9 @@ class KtheliApp : ApplicationAdapter() {
     override fun dispose() {
         imgui.dispose()
         scene.dispose()
+    }
+
+    private companion object {
+        const val TOY_ROTOR_RPM = 2500.0 // the toy has no rotor physics: always shown spinning
     }
 }
