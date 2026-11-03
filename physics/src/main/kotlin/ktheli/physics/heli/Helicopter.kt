@@ -30,6 +30,8 @@ class Helicopter(
     val transmitter: Transmitter = Transmitter(Transmitter.default3d()),
     val controller: FlightController = FlybarlessController(),
     initial: RigidBodyState = parkedAt(Vec3.ZERO, airframe),
+    /** The main rotor model; the disc model is the simpler Phase 2 one. */
+    val mainRotor: MainRotor = FlappingDiscRotor(airframe.mainRotor),
     seed: Long = 1,
     private val tickRateHz: Int = 2000,
     controllerRateHz: Int = 1000,
@@ -38,7 +40,6 @@ class Helicopter(
         private set
 
     private val mp = MassProperties(airframe.mass, airframe.inertia)
-    private val mainDisc = RotorDisc(airframe.mainRotor.rotor)
     private val tailDisc = RotorDisc(airframe.tailRotor.rotor)
     private val drivetrain = Drivetrain(airframe.motor, airframe.battery, airframe.esc)
     private val imu = Imu(seed)
@@ -56,10 +57,7 @@ class Helicopter(
     // Rotor states.
     var rotorSpeed = 0.0 // main rotor, rad/s
         private set
-    private var mainInflow = 0.0
     private var tailInflow = 0.0
-    private var flapLon = 0.0 // a1: disc tilt back (nose-up), rad
-    private var flapLat = 0.0 // b1: disc tilt right, rad
     private var specificForce = Vec3(0.0, 0.0, -9.80665)
 
     // Latest values, for gauges.
@@ -68,14 +66,16 @@ class Helicopter(
     var sensors = SensorReadings(Vec3.ZERO, specificForce, 0.0)
         private set
     private var pitches = BladePitches(0.0, 0.0, 0.0, 0.0)
-    private var last = Forces(Wrench.ZERO, RotorDisc.Output(0.0, 0.0, 0.0, 0.0, 0.0, 0.0), RotorDisc.Output(0.0, 0.0, 0.0, 0.0, 0.0, 0.0), 0.0)
+    private var last = Forces(
+        Wrench.ZERO, MainRotorLoads(Vec3.ZERO, Vec3.ZERO, 0.0, 0.0, 0.0), RotorDisc.Output(0.0, 0.0, 0.0, 0.0, 0.0, 0.0), 1.0,
+    )
     private var motorTorque = 0.0
     private var electricalPower = 0.0
 
     /** Blade pitch angles in rad; cyclic as swashplate tilt (forward / right positive). */
     data class BladePitches(val collective: Double, val lateral: Double, val longitudinal: Double, val tail: Double)
 
-    private class Forces(val wrench: Wrench, val main: RotorDisc.Output, val tail: RotorDisc.Output, val groundEffect: Double)
+    private class Forces(val wrench: Wrench, val main: MainRotorLoads, val tail: RotorDisc.Output, val groundEffect: Double)
 
     override fun step(controls: Controls, dt: Double) {
         receiver = transmitter.receive(controls)
@@ -96,34 +96,23 @@ class Helicopter(
         electricalPower = electric.electricalPower
 
         val start = forces(body)
+        val before = body
         body = integrateRk4(body, mp, dt) { s -> forces(s).wrench }
-        advanceRotorStates(start, dt)
+        advanceRotorStates(start, before, dt)
         specificForce = start.wrench.force / mp.mass
         last = start
         tick++
     }
 
-    private fun advanceRotorStates(f: Forces, dt: Double) {
+    private fun advanceRotorStates(f: Forces, before: RigidBodyState, dt: Double) {
         val mr = airframe.mainRotor
         val tailShaftTorque = if (rotorSpeed > 1.0) f.tail.power / rotorSpeed else 0.0
         val friction = 0.002 * rotorSpeed / mr.referenceSpeed + (if (rotorSpeed > 0.0) 0.003 else 0.0) // bearings, gears
-        rotorSpeed = (rotorSpeed + (motorTorque - f.main.torque - tailShaftTorque - friction) / mr.inertia * dt).coerceAtLeast(0.0)
+        rotorSpeed = (rotorSpeed + (motorTorque - f.main.shaftTorque - tailShaftTorque - friction) / mr.inertia * dt).coerceAtLeast(0.0)
 
-        mainInflow += (f.main.equilibriumInflow - mainInflow) * dt / mainDisc.inflowTimeConstant(rotorSpeed, f.main.inflowRatio)
         val tailSpeed = rotorSpeed * airframe.tailRotor.gearRatio
         tailInflow += (f.tail.equilibriumInflow - tailInflow) * dt / tailDisc.inflowTimeConstant(tailSpeed, f.tail.inflowRatio)
-
-        // First-order tip-path-plane dynamics (Gavrilets et al., small aerobatic helicopter): the disc follows
-        // cyclic with time constant 16/(γΩ), lags body rotation, and blows back away from the relative wind.
-        val tau = 16.0 / (mr.lockNumber * maxOf(rotorSpeed, MIN_FLAP_SPEED))
-        val v = body.velocityBody + (body.angularVelocity cross hub)
-        val tipSpeed = maxOf(rotorSpeed, MIN_FLAP_SPEED) * mr.rotor.radius
-        val blowback = 2.0 * (4.0 / 3.0 * pitches.collective - f.main.inflowRatio)
-        val omega = body.angularVelocity
-        flapLon += (-omega.y + (-flapLon - pitches.longitudinal + blowback * v.x / tipSpeed) / tau) * dt
-        flapLat += (-omega.x + (-flapLat + pitches.lateral - blowback * v.y / tipSpeed) / tau) * dt
-        flapLon = flapLon.coerceIn(-MAX_FLAP, MAX_FLAP)
-        flapLat = flapLat.coerceIn(-MAX_FLAP, MAX_FLAP)
+        mainRotor.advance(f.main, before, body, rotorSpeed, pitches, specificForce, f.groundEffect, dt)
     }
 
     private fun forces(s: RigidBodyState): Forces {
@@ -132,22 +121,13 @@ class Helicopter(
         val mr = airframe.mainRotor
         val tr = airframe.tailRotor
 
-        // Main rotor: thrust along -z, tilted with the flapping disc.
-        val vHub = v + (omega cross hub)
+        // Main rotor.
         val hubAltitude = -(s.position + s.attitude.rotate(hub)).z
         val groundEffect = RotorDisc.groundEffect(mr.rotor.radius, hubAltitude)
-        val main = mainDisc.evaluate(
-            RotorDisc.Input(pitches.collective, vHub.z, DMath.hypot(vHub.x, vHub.y), rotorSpeed, mainInflow, groundEffect),
-        )
-        val thrust = main.thrust
-        val mainForce = Vec3(
-            -thrust * DMath.sin(flapLon),
-            thrust * DMath.sin(flapLat) * DMath.cos(flapLon),
-            -thrust * DMath.cos(flapLon) * DMath.cos(flapLat),
-        )
-        val stiffness = mr.hubStiffnessStatic + mr.hubStiffnessCentrifugal * (rotorSpeed / mr.referenceSpeed).let { it * it }
+        val main = mainRotor.loads(s, rotorSpeed, pitches, groundEffect)
+        val mainForce = main.force
         // The motor turns the rotor clockwise seen from above (+z body); its reaction yaws the fuselage nose-left.
-        val mainMoment = (hub cross mainForce) + Vec3(stiffness * flapLat, stiffness * flapLon, -motorTorque)
+        val mainMoment = (hub cross mainForce) + main.hubMoment + Vec3(0.0, 0.0, -motorTorque)
 
         // Tail rotor on the right side, thrusting left (-y) to yaw the nose right.
         val vTail = v + (omega cross tr.position)
@@ -218,19 +198,36 @@ class Helicopter(
         Gauge("Thrust", "main", "N") { last.main.thrust },
         Gauge("Thrust", "tail", "N") { last.tail.thrust },
         Gauge("Thrust", "weight", "N") { mp.mass * 9.80665 },
-        Gauge("Disc", "flap back", "deg") { DMath.toDegrees(flapLon) },
-        Gauge("Disc", "flap right", "deg") { DMath.toDegrees(flapLat) },
+        Gauge("Disc", "tilt back", "deg") { DMath.toDegrees(mainRotor.tiltBack) },
+        Gauge("Disc", "tilt right", "deg") { DMath.toDegrees(mainRotor.tiltRight) },
+        Gauge("Disc", "coning", "deg") { DMath.toDegrees(mainRotor.coning) },
     )
 
     override fun hashInto(hash: StateHash) {
-        hash.add(body).add(rotorSpeed).add(mainInflow).add(tailInflow).add(flapLon).add(flapLat)
+        hash.add(body).add(rotorSpeed).add(tailInflow)
+        mainRotor.hashInto(hash)
         hash.add(servoFront.position).add(servoRight.position).add(servoLeft.position).add(servoTail.position)
         hash.add(drivetrain.stateOfCharge).add(drivetrain.governorTarget).add(imu.rng.state)
     }
 
     companion object {
-        private const val MIN_FLAP_SPEED = 30.0 // rad/s; keeps the flapping time constant finite at standstill
-        private val MAX_FLAP = DMath.toRadians(15.0)
+        /** The 450 with the Phase 2 rotor: uniform-inflow disc with first-order flapping. */
+        fun disc450(initial: RigidBodyState = parkedAt(Vec3.ZERO), seed: Long = 1) = Helicopter(
+            initial = initial,
+            seed = seed,
+            mainRotor = FlappingDiscRotor(Airframes.class450.mainRotor),
+        )
+
+        /** The 450 with the blade element rotor; its FBL unit is set up with cyclic phase compensation. */
+        fun bladeElement450(initial: RigidBodyState = parkedAt(Vec3.ZERO), seed: Long = 1) = Helicopter(
+            initial = initial,
+            seed = seed,
+            mainRotor = BladeElementRotor(Airframes.class450.mainRotor),
+            controller = FlybarlessController(FlybarlessSettings(cyclicPhaseDeg = BLADE_ELEMENT_PHASE)),
+        )
+
+        const val BLADE_ELEMENT_PHASE = 18.0 // minimizes roll-pitch cross-coupling (measured in flight)
+
         private const val SLIP_REGULARIZATION = 0.05 // m/s; smooths Coulomb friction around zero slip
 
         /** Resting on its skids at the given world position (z is ignored), with ~1 cm sag. */

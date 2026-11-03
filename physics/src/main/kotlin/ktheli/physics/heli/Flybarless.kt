@@ -73,6 +73,9 @@ class RateGyro(private val s: TailGyroSettings = TailGyroSettings()) : TailGyro 
  *   time constant divided by the cyclic range
  * @property lowRpmIntegratorCutoff below this rotor rpm the integrators are held at zero, so they don't wind
  *   up while the heli sits on its skids
+ * @property cyclicPhaseDeg rotates cyclic commands against the rotor's own phase error: a stiff head flaps
+ *   less than 90° behind the pitch input, so pure roll cyclic also tilts the disc forward (like the
+ *   "cyclic phase" setting of real units)
  */
 data class FlybarlessSettings(
     val loopRateHz: Int = 1000,
@@ -86,6 +89,7 @@ data class FlybarlessSettings(
     val cyclicI: Double = 0.6,
     val cyclicIntegralLimit: Double = 0.4, // rad of attitude error
     val lowRpmIntegratorCutoff: Double = 1000.0,
+    val cyclicPhaseDeg: Double = 0.0,
 )
 
 /**
@@ -100,6 +104,8 @@ class FlybarlessController(
     private val pitch = RateLoop(settings.cyclicFeedForward, settings.cyclicP, settings.cyclicI, settings.cyclicIntegralLimit)
     private val collectiveScale = settings.collectiveRangeDeg / settings.servoPitchRangeDeg
     private val cyclicScale = settings.cyclicRangeDeg / settings.servoPitchRangeDeg
+    private val phaseCos = DMath.cos(DMath.toRadians(settings.cyclicPhaseDeg))
+    private val phaseSin = DMath.sin(DMath.toRadians(settings.cyclicPhaseDeg))
 
     override fun update(sensors: SensorReadings, rx: ReceiverInputs, dt: Double): ServoCommands {
         val spinning = (sensors.rotorRpm ?: Double.MAX_VALUE) >= settings.lowRpmIntegratorCutoff
@@ -107,9 +113,9 @@ class FlybarlessController(
         // Stick forward commands nose-down (negative q); the swashplate's positive pitch tilts it forward.
         val noseUp = pitch.update(-rx.pitch * settings.maxPitchRate, sensors.gyro.y, dt, integrate = spinning)
 
-        // Cyclic ring: limit combined cyclic so the swashplate stays within its geometric range.
-        var r = rollOut
-        var p = -noseUp
+        // Phase compensation, then the cyclic ring: limit combined cyclic to the swashplate's geometric range.
+        var r = rollOut * phaseCos - noseUp * phaseSin
+        var p = rollOut * -phaseSin - noseUp * phaseCos
         val magnitude = DMath.sqrt(r * r + p * p)
         if (magnitude > 1.0) {
             r /= magnitude

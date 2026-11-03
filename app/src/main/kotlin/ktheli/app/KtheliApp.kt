@@ -74,8 +74,10 @@ class KtheliApp : ApplicationAdapter() {
         Gdx.gl.glViewport(0, 0, bw, bh)
         Gdx.gl.glClearColor(0.55f, 0.72f, 0.92f, 1f)
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT or GL20.GL_DEPTH_BUFFER_BIT)
-        val spin = (core.runner.sim.aircraft as? Helicopter)?.let { (it.rotorRpm / 2500.0).toFloat() } ?: 1f
-        scene.render(core.runner.renderState(), spin, 0, 0, bw, (bh - menuPixels).coerceAtLeast(1))
+        val rotor = (core.runner.sim.aircraft as? Helicopter)?.let {
+            Scene.RotorView((it.rotorRpm / 2500.0).toFloat(), it.mainRotor.tiltBack, it.mainRotor.tiltRight)
+        } ?: Scene.RotorView(1f)
+        scene.render(core.runner.renderState(), rotor, 0, 0, bw, (bh - menuPixels).coerceAtLeast(1))
         Gdx.gl.glViewport(0, 0, bw, bh)
 
         imgui.endFrame()

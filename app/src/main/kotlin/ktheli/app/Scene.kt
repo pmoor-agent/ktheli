@@ -18,6 +18,7 @@ import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder
 import com.badlogic.gdx.graphics.g3d.utils.shapebuilders.BoxShapeBuilder
 import com.badlogic.gdx.graphics.g3d.utils.shapebuilders.CylinderShapeBuilder
 import com.badlogic.gdx.math.Matrix4
+import com.badlogic.gdx.math.Quaternion
 import com.badlogic.gdx.math.Vector3
 import com.badlogic.gdx.utils.Disposable
 import ktheli.physics.body.RigidBodyState
@@ -98,6 +99,19 @@ class Scene(private val view: ViewSettings) : Disposable {
         return mb.end()
     }
 
+    private val tilt = Quaternion()
+    private val tiltPart = Quaternion()
+
+    /** Rotor disc node: lie along body z, then tilt back (about body y) and right (about body x). */
+    private fun tiltRotor(back: Double, right: Double) {
+        val node = heli.getNode("rotor") ?: return
+        tilt.set(Vector3.X, Math.toDegrees(right).toFloat())
+        tilt.mul(tiltPart.set(Vector3.Y, Math.toDegrees(back).toFloat()))
+        tilt.mul(tiltPart.set(Vector3.X, 90f))
+        node.rotation.set(tilt)
+        heli.calculateTransforms()
+    }
+
     private fun setRotorOpacity(alpha: Float) {
         for (id in listOf("rotor", "tailRotor")) {
             heli.getNode(id)?.parts?.forEach { part ->
@@ -113,9 +127,12 @@ class Scene(private val view: ViewSettings) : Disposable {
     )
 
     /** Renders into the given back-buffer pixel rectangle. */
-    /** [rotorSpin] 0..1 fades the rotor discs in as the rotor spins up. */
-    fun render(state: RigidBodyState, rotorSpin: Float, x: Int, y: Int, width: Int, height: Int) {
-        setRotorOpacity(0.04f + 0.28f * rotorSpin.coerceIn(0f, 1f))
+    /** How to draw the main rotor: [spin] 0..1 fades it in, tilts (rad) follow the simulated tip-path plane. */
+    class RotorView(val spin: Float, val tiltBack: Double = 0.0, val tiltRight: Double = 0.0)
+
+    fun render(state: RigidBodyState, rotor: RotorView, x: Int, y: Int, width: Int, height: Int) {
+        setRotorOpacity(0.04f + 0.28f * rotor.spin.coerceIn(0f, 1f))
+        tiltRotor(rotor.tiltBack, rotor.tiltRight)
         Gdx.gl.glViewport(x, y, width, height)
         camera.viewportWidth = width.toFloat()
         camera.viewportHeight = height.toFloat()

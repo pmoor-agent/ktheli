@@ -28,8 +28,16 @@ main rotor (thrust, flapping, hub moments) + tail rotor + fuselage + fin + skids
 - **Rotors** (`RotorDisc`): blade-element thrust with uniform inflow from Glauert's momentum relation
   (Heffley & Mnich, NASA CR-177476), dynamic inflow lag, profile power, Cheeseman–Bennett ground effect.
   Shared by main and tail rotor; translational lift and windmilling fall out of it.
-- **Disc** (`Helicopter`): first-order tip-path-plane flapping (time constant 16/γΩ, lags body rates, blows
-  back with airspeed; after Gavrilets et al.), hub moments from hub stiffness and thrust offset.
+- **Main rotor** behind the `MainRotor` interface, two models:
+  - `BladeElementRotor` (default): both blades tracked at their actual azimuth, 12 sections each, local
+    airflow per section (rotation, fuselage motion, flapping, inflow) and a 360° NACA 0012-like `Airfoil`
+    (linear lift, stall, flat plate, reverse flow). Each blade flaps as a rigid body on a spring hinge, from
+    the full rotating-frame equations (centrifugal stiffening, gyroscopic coupling to body rates, g-load on
+    coning). Uniform momentum inflow plus a Pitt-Peters fore-aft gradient. Cyclic phase lag, cross-coupling
+    (compensated by the FBL's `cyclicPhaseDeg`, as on real units), blowback, coning and the roll tendency in
+    translational lift come out of the physics.
+  - `FlappingDiscRotor`: the Phase 2 model, `RotorDisc` thrust with first-order tip-path-plane flapping
+    (16/γΩ, rate lag, blowback; after Gavrilets et al.).
 - **Drivetrain**: battery sag, brushless motor (Kv, R, I0), one-way bearing, ESC governor with soft start
   and bailout. Headspeed sags on hard punches; the tail weakens with it.
 - **Flight controller**: `FlightController` and `TailGyro` interfaces see only what a real unit could
@@ -38,7 +46,7 @@ main rotor (thrust, flapping, hub moments) + tail rotor + fuselage + fin + skids
   hold vs. rate mode, collective precomp) and `RateGyro` implement `TailGyro`.
 - **Airframe** parameters live in `Airframes.class450`; numbers in the range of a T-Rex 450 class machine.
 - Known limits: vertical descent through the vortex-ring/turbulent-wake region uses plain momentum theory
-  (needs the empirical inflow model planned with VRS); no blade-element cyclic or cross-coupling yet.
+  (needs the empirical inflow model planned with VRS); no dynamic stall, blade lag or elastic blades.
 
 ## Determinism contract (`physics`)
 
@@ -63,8 +71,8 @@ Attitude quaternions rotate body → world. The renderer converts to libGDX's Y-
 
 ## Flying
 
-The default aircraft is a 450-size electric helicopter with a flybarless controller and a heading-hold
-tail gyro. Like a real one it starts **armed safe, with throttle hold on**:
+The default aircraft is a 450-size electric helicopter with a blade element rotor, a flybarless controller
+and a heading-hold tail gyro (the *Aircraft* menu also offers the simpler disc-rotor version and the toy). Like a real one it starts **armed safe, with throttle hold on**:
 
 1. Press `H` to release throttle hold.
 2. Press `F` to go from *Normal* (gentle pitch curve, spool-up) to *Idle up 1* (symmetric ±11° 3D pitch,
@@ -156,7 +164,7 @@ fun `rebinding a key`() = uiTest { ui ->
 0. ✅ Skeleton, input diagnostics/calibration, deterministic core
 1. ✅ Toy heli (thrust ∝ collective, ideal rate controller) — still selectable under *Aircraft*
 2. ✅ Momentum-theory rotor, rotor RPM dynamics, motor + governor, tail rotor, FBL + heading-hold gyro
-3. Blade-element rotor (360° airfoil tables), flapping, dynamic inflow, ground effect
+3. ✅ Blade-element rotor (360° airfoil), per-blade flapping, dynamic and skewed inflow, ground effect
 4. ✅ FBL controller, swashplate mixing, TX curves/expo, flight modes, throttle hold (done with Phase 2);
    still open: dual rates, per-mode tuning UI
 5. Wind, Dryden turbulence, gusts, vortex ring state, fuselage/fin aero

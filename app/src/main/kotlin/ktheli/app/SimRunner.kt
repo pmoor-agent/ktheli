@@ -16,7 +16,8 @@ import ktheli.physics.sim.Simulation
 class SimRunner {
     /** The aircraft types the simulator offers; [create] parks a fresh one in front of the pilot. */
     enum class AircraftType(val label: String, val create: () -> AircraftModel) {
-        HELI_450("450 class (FBL, 3S)", { Helicopter(initial = Helicopter.parkedAt(START)) }),
+        HELI_450("450 class - blade element rotor", { Helicopter.bladeElement450(initial = Helicopter.parkedAt(START)) }),
+        HELI_450_DISC("450 class - disc rotor (simpler)", { Helicopter.disc450(initial = Helicopter.parkedAt(START)) }),
         TOY("Toy heli (no rotor physics)", { ToyHeli(ToyHeli.parkedAt(START)) }),
     }
 
