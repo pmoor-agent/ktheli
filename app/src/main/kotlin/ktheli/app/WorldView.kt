@@ -34,7 +34,7 @@ object WorldView {
                 RotorPose(it.rotorRpm, it.tailRotorRpm, it.mainRotor.tiltBack, it.mainRotor.tiltRight, it.mainRotor.bladeAzimuth)
             }
         } ?: RotorPose(rpm = if (crashed) 0.0 else TOY_ROTOR_RPM, tailRpm = if (crashed) 0.0 else TOY_ROTOR_RPM * 4.5)
-        val sockWind = core.session.runner.sim.environment.windAt(scene.windsockTop)
+        val sockWind = core.session.runner.sim.environment.windAt(core.session.runner.field.windsockTop)
         val binoculars = core.session.view.camera.binoculars.takeIf { it.enabled }?.let { b ->
             // Same layout the UI frames, converted from logical (top-left origin) to back-buffer pixels.
             val r = Binoculars.layout(logicalWidth, logicalHeight - menu, menu, b)

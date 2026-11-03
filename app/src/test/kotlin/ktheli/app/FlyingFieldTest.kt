@@ -3,6 +3,7 @@ package ktheli.app
 import ktheli.app.harness.UiDriver
 import ktheli.app.harness.uiTest
 import ktheli.physics.math.Vec3
+import ktheli.physics.sim.StateHash
 import java.nio.file.Files
 import kotlin.math.hypot
 import kotlin.test.Test
@@ -10,6 +11,20 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class FlyingFieldTest {
+    /**
+     * Obstacles are a simulation input: a replay needs exactly the same trees, on any machine. Their geometry is
+     * built with Pcg32 and StrictMath, so this hash is the same everywhere; it only changes when a field's layout
+     * is changed on purpose (update it then, knowing old recordings won't replay).
+     */
+    @Test
+    fun `obstacle geometry is bit-reproducible`() {
+        val hash = StateHash()
+        for (field in FlyingFields.ALL) {
+            for (o in field.obstacles.all) hash.add(o.x).add(o.y).add(o.radius).add(o.bottom).add(o.top)
+        }
+        assertEquals(PINNED_OBSTACLE_HASH, hash.value, "obstacle hash 0x%016x".format(hash.value))
+    }
+
     @Test
     fun `fields have unique ids, the home field has its pad at the origin and starts the model on it`() {
         assertEquals(FlyingFields.ALL.size, FlyingFields.ALL.map { it.id }.toSet().size)
@@ -60,5 +75,9 @@ class FlyingFieldTest {
         } finally {
             dir.toFile().deleteRecursively()
         }
+    }
+
+    private companion object {
+        const val PINNED_OBSTACLE_HASH = 0x2e7bae60ac6e4c40L
     }
 }

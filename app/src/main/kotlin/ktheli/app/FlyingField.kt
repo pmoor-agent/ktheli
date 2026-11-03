@@ -2,16 +2,18 @@ package ktheli.app
 
 import ktheli.physics.env.Obstacle
 import ktheli.physics.env.Obstacles
+import ktheli.physics.math.DMath
 import ktheli.physics.math.Vec3
-import java.util.Random
+import ktheli.physics.random.Pcg32
 import kotlin.math.PI
-import kotlin.math.cos
-import kotlin.math.sin
 
 /**
  * A place to fly: where the pilot stands, where the model starts, and what the field looks like. The physics
  * ground is the flat plane z = 0 everywhere; trees and the windsock pole are [obstacles] the model can crash
  * into. Positions are world NED (x north, y east, z down) with the origin at the field's centre.
+ *
+ * The obstacles are a simulation input, so everything they're built from is bit-reproducible: [Pcg32] and
+ * [DMath] (StrictMath), as in the physics module.
  */
 class FlyingField(
     val id: String,
@@ -23,14 +25,18 @@ class FlyingField(
     val start: Vec3,
     /** Foot of the windsock pole. */
     val windsock: Vec3,
+    val windsockHeight: Double = 3.0,
     val ground: Ground,
     val pads: List<Pad> = emptyList(),
     val trees: TreeLine? = null,
 ) {
+    /** Top of the windsock pole, where the sock shows the wind. */
+    val windsockTop: Vec3 get() = Vec3(windsock.x, windsock.y, -windsockHeight)
+
     /** Rough crash shapes matching what [FieldRenderer] draws: a trunk and a crown per tree, the windsock pole. */
     val obstacles: Obstacles by lazy {
         val list = ArrayList<Obstacle>()
-        list += Obstacle("the windsock", windsock.x, windsock.y, 0.04, 0.0, FieldRenderer.WINDSOCK_HEIGHT)
+        list += Obstacle("the windsock", windsock.x, windsock.y, 0.04, 0.0, windsockHeight)
         trees?.trees()?.forEach { t ->
             val x = t.position.x
             val y = t.position.y
@@ -85,7 +91,7 @@ data class TreeLine(
 
     /** The trees in a band [radius]..[radius] + [depth], [rows] staggered rows, roughly [spacing] apart in each. */
     fun trees(): List<Tree> {
-        val rng = Random(seed)
+        val rng = Pcg32.seeded(seed)
         val out = ArrayList<Tree>()
         for (row in 0 until rows) {
             val r0 = radius + depth * row / rows
@@ -95,7 +101,7 @@ data class TreeLine(
                 val r = r0 + depth / rows * rng.nextDouble()
                 val height = minHeight + (maxHeight - minHeight) * rng.nextDouble()
                 val kind = if (rng.nextDouble() < conifers) Kind.CONIFER else Kind.LEAFY
-                out += Tree(Vec3(r * cos(angle), r * sin(angle), 0.0), height, kind, rng.nextDouble())
+                out += Tree(Vec3(r * DMath.cos(angle), r * DMath.sin(angle), 0.0), height, kind, rng.nextDouble())
             }
         }
         return out

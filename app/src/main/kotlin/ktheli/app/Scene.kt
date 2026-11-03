@@ -77,9 +77,6 @@ class Scene(private val view: ViewSettings) : Disposable {
         field = FieldRenderer(next)
     }
 
-    /** World position of the windsock's top (current field), where the app should sample the wind for [render]. */
-    val windsockTop: Vec3 get() = this.field?.windsockTop ?: Vec3.ZERO
-
     /** The main camera of the last [render]: also where the sound is heard. */
     var pose: CameraPose? = null
         private set
@@ -89,7 +86,7 @@ class Scene(private val view: ViewSettings) : Disposable {
 
     /**
      * Renders the 3D view into [main] and, if given, the binocular inset into [binoculars]. [windAtSock] is the
-     * wind (world NED) at [windsockTop]; [frameSeconds] the time since the last frame (camera smoothing, rotor
+     * wind (world NED) at the current field's [FlyingField.windsockTop]; [frameSeconds] the time since the last frame (camera smoothing, rotor
      * spin, blade blur).
      */
     fun render(

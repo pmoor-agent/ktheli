@@ -41,7 +41,6 @@ class FieldRenderer(val field: FlyingField) : Disposable {
     private val lit = (Usage.Position or Usage.Normal).toLong()
 
     /** World position of the windsock's top, where the wind for [update] should be sampled. */
-    val windsockTop: Vec3 = Vec3(field.windsock.x, field.windsock.y, -WINDSOCK_HEIGHT)
 
     init {
         val mb = ModelBuilder()
@@ -50,8 +49,8 @@ class FieldRenderer(val field: FlyingField) : Disposable {
         field.trees?.let { buildTrees(mb, it) }
 
         objects += ModelInstance(
-            mb.createBox(0.05f, WINDSOCK_HEIGHT.toFloat(), 0.05f, Material(ColorAttribute.createDiffuse(Color.LIGHT_GRAY)), lit).keep(),
-        ).apply { transform.setToTranslation(field.windsock.toGdx().add(0f, WINDSOCK_HEIGHT.toFloat() / 2, 0f)) }
+            mb.createBox(0.05f, field.windsockHeight.toFloat(), 0.05f, Material(ColorAttribute.createDiffuse(Color.LIGHT_GRAY)), lit).keep(),
+        ).apply { transform.setToTranslation(field.windsock.toGdx().add(0f, field.windsockHeight.toFloat() / 2, 0f)) }
         // A cone along +Y with its tip at +Y: the wide end is the sock's mouth at the pole.
         windsock = ModelInstance(
             mb.createCone(0.3f, SOCK_LENGTH, 0.3f, 16, Material(ColorAttribute.createDiffuse(Color(1f, 0.45f, 0.05f, 1f)), IntAttribute.createCullFace(GL20.GL_NONE)), lit).keep(),
@@ -169,7 +168,7 @@ class FieldRenderer(val field: FlyingField) : Disposable {
         val ned = Vec3(dir.x * cos(droop), dir.y * cos(droop), sin(droop))
         sockDirection.set(ned.toGdx()).nor()
         sockRotation.setFromCross(Vector3.Y, sockDirection)
-        windsock.transform.set(windsockTop.toGdx().add(sockDirection.cpy().scl(SOCK_LENGTH / 2)), sockRotation)
+        windsock.transform.set(field.windsockTop.toGdx().add(sockDirection.cpy().scl(SOCK_LENGTH / 2)), sockRotation)
     }
 
     /**
@@ -193,7 +192,6 @@ class FieldRenderer(val field: FlyingField) : Disposable {
     }
 
     companion object {
-        const val WINDSOCK_HEIGHT = 3.0
         const val SOCK_LENGTH = 0.9f
         const val GROUND_Y = -0.01f // just under the grid lines
         const val PAD_Y = 0.004f // painted on the grass
