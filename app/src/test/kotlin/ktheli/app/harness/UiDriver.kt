@@ -12,18 +12,23 @@ import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.math.ceil
 
-/** A joystick whose axes and buttons a script sets directly. */
+/**
+ * A joystick whose axes, buttons and hats a script sets directly. Hats take GLFW bitmasks
+ * (`GLFW_HAT_UP` etc.) and appear as four virtual buttons each after the [buttons], like real devices.
+ */
 class ScriptedJoystick(
     val name: String = "Scripted Pad",
     val guid: String = "scripted-pad",
     axisCount: Int = 6,
     buttonCount: Int = 12,
+    hatCount: Int = 1,
 ) {
     val axes = FloatArray(axisCount)
     val buttons = BooleanArray(buttonCount)
+    val hats = IntArray(hatCount)
     var connected = true
 
-    fun snapshot() = Joystick(0, guid, name, axes.copyOf(), buttons.copyOf())
+    fun snapshot() = Joystick(0, guid, name, axes.copyOf(), Joystick.withHatButtons(buttons, hats), hats.size)
 }
 
 /**
@@ -175,6 +180,14 @@ class UiDriver(val width: Int = 1280, val height: Int = 800) : AutoCloseable {
         joystick.buttons[index] = true
         frame()
         joystick.buttons[index] = false
+        frame()
+    }
+
+    /** Pushes hat [hat] in [direction] (GLFW bitmask, e.g. `GLFW_HAT_UP or GLFW_HAT_RIGHT`) and releases it. */
+    fun pressHat(direction: Int, hat: Int = 0) {
+        joystick.hats[hat] = direction
+        frame()
+        joystick.hats[hat] = 0
         frame()
     }
 

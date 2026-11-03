@@ -89,7 +89,7 @@ class InputController(
             is Mode.CapturingButton -> j?.let { joy ->
                 m.detector.observe(joy.buttons)?.let { button ->
                     saveProfile(config.devices.getValue(joy.guid).withButton(m.action, button))
-                    status = "${m.action.label} -> button $button"
+                    status = "${m.action.label} -> ${joy.buttonLabel(button)}"
                     mode = Mode.Fly
                 }
             }
