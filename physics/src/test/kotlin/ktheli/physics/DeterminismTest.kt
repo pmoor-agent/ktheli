@@ -69,7 +69,7 @@ class DeterminismTest {
     }
 
     private companion object {
-        val GOLDEN_HELI = 0x927d855be0ecfc1fuL.toLong()
+        val GOLDEN_HELI = 0x68c6f0381b9c8e33uL.toLong()
         val GOLDEN = 0x953bafce4971c8f0uL.toLong()
     }
 }

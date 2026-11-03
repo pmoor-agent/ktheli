@@ -195,13 +195,14 @@ class Helicopter(
     // --- Read-outs ---------------------------------------------------------------------------------
 
     val rotorRpm: Double get() = rotorSpeed * 60.0 / DMath.TWO_PI
+    val governorTargetRpm: Double get() = drivetrain.governorTarget * 60.0 / DMath.TWO_PI
     val bladePitches: BladePitches get() = pitches
     val mainThrust: Double get() = last.main.thrust
     val tailThrust: Double get() = last.tail.thrust
 
     override val gauges: List<Gauge> = listOf(
         Gauge("Rotor", "headspeed", "rpm") { rotorRpm },
-        Gauge("Rotor", "governor target", "rpm") { drivetrain.governorTarget * 60.0 / DMath.TWO_PI },
+        Gauge("Rotor", "governor target", "rpm") { governorTargetRpm },
         Gauge("Power", "electrical", "W") { electricalPower },
         Gauge("Power", "main rotor", "W") { last.main.power },
         Gauge("Power", "tail rotor", "W") { last.tail.power },
