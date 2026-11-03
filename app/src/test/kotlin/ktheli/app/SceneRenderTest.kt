@@ -12,6 +12,7 @@ import org.junit.jupiter.api.BeforeEach
 import java.awt.image.BufferedImage
 import java.nio.file.Paths
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /** Renders the real 3D scene headlessly and checks what it shows. */
@@ -53,16 +54,34 @@ class SceneRenderTest {
         CameraSettings(mode = CameraMode.FOLLOW, followDistance = 1.3, followHeight = 1.0),
     ).use { p ->
         val stopped = p.render(parked, RotorPose(0.0, 0.0, bladeAzimuth = 0.0))
-        val slow = p.render(parked, RotorPose(590.0, 0.0, bladeAzimuth = 0.0)) // tail held still: it blurs 4.5x sooner
+        val slow = p.render(parked, RotorPose(290.0, 0.0, bladeAzimuth = 0.0)) // tail held still: it blurs 4.5x sooner
         val fast = p.render(parked, spinning())
         Images.write(stopped, out.resolve("rotor-stopped.png"))
         Images.write(fast, out.resolve("rotor-spinning.png"))
         val pixels = p.width * p.height
         val disc = Images.changed(stopped, fast).size
         val creep = Images.changed(stopped, slow).size
-        println("rotor: %.1f%% of pixels change when spinning up, %.2f%% at 590 rpm".format(100.0 * disc / pixels, 100.0 * creep / pixels))
+        println("rotor: %.1f%% of pixels change when spinning up, %.2f%% at 290 rpm".format(100.0 * disc / pixels, 100.0 * creep / pixels))
         assertTrue(disc > 0.02 * pixels, "the disc covers a large area")
-        assertTrue(creep < disc / 20, "below 600 rpm the main rotor still shows sharp blades, no disc")
+        assertTrue(creep < disc / 20, "below 300 rpm the main rotor still shows sharp blades, no disc")
+    }
+
+    /** Main and tail rotor fade independently: the tail turns 4.5x faster and blurs long before the main rotor. */
+    @Test
+    fun `main and tail rotor blur independently`() {
+        val renderer = ObjHeliRenderer(HelicopterModels.TREX_450.visual as HelicopterVisual.Obj)
+        try {
+            val n = RotorNodes()
+            renderer.update(parked, RotorPose(rpm = 250.0, tailRpm = 250.0 * 4.5, bladeAzimuth = 0.0), 1f / 60f, 60f)
+            val opacities = listOf(n.mainBlades, n.mainDisc, n.tailBlades, n.tailDisc).associateWith { renderer.opacity(it) }
+            println("opacities at 250 rpm main / 1125 rpm tail: $opacities")
+            assertEquals(1f, opacities[n.mainBlades]!!, 1e-6f) // main rotor below 300 rpm: sharp blades
+            assertEquals(0f, opacities[n.mainDisc]!!, 1e-6f) // ... and no disc
+            assertEquals(0.1f, opacities[n.tailBlades]!!, 1e-6f) // tail above 700 rpm: blurred
+            assertEquals(0.9f, opacities[n.tailDisc]!!, 1e-6f)
+        } finally {
+            renderer.dispose()
+        }
     }
 
     @Test
