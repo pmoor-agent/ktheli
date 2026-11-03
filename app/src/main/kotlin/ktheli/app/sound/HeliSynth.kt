@@ -15,7 +15,8 @@ import kotlin.math.tanh
  * Layers:
  * - **Main rotor:** a pulse per blade passage, made of a symmetric (thickness) and an antisymmetric (loading)
  *   part; sharper pulses when loaded or slapping. The two blades differ slightly, as real ones do.
- * - **Blade swish:** band-passed noise that swells as each blade passes.
+ * - **Blade swish:** band-passed noise bursting as each blade sweeps past; loudest and brightest under load.
+ * - **Downwash:** a low roar of the air the rotor moves.
  * - **Tail rotor:** softer, faster pulses: a buzz.
  * - **Motor:** electrical fundamental with harmonics; **gears:** a faint tooth-mesh tone.
  * - **Wind** at the listener: low rumbling noise with slow gusts.
@@ -32,6 +33,8 @@ class HeliSynth(val sampleRate: Int = 44_100, seed: Long = 0x5EED) {
     private var rotorLevel = 0.0
     private var sharpness = 0.0
     private var rotorNoise = 0.0
+    private var swishHz = 900.0
+    private var washLevel = 0.0
     private var tailPassHz = 0.0
     private var tailLevel = 0.0
     private var motorHz = 0.0
@@ -55,6 +58,8 @@ class HeliSynth(val sampleRate: Int = 44_100, seed: Long = 0x5EED) {
     // Filters.
     private var swishLow = 0.0
     private var swishBand = 0.0
+    private var wash1 = 0.0
+    private var wash2 = 0.0
     private var absorbed = 0.0
     private var windLeft = 0.0
     private var windRight = 0.0
@@ -85,12 +90,20 @@ class HeliSynth(val sampleRate: Int = 44_100, seed: Long = 0x5EED) {
             val blade = if (secondBlade) 1.0 - BLADE_MISMATCH else 1.0 + BLADE_MISMATCH
             val rotor = rotorLevel * blade * (0.6 * thickness + 0.5 * (0.5 + sharpness) * loading)
 
-            // Blade swish: noise through a state-variable band-pass, swelling with each passage.
-            val f = 2.0 * sin(PI * minOf(SWISH_HZ * doppler, nyquist) / sampleRate)
+            // Blade swish: each blade sweeping past pushes a burst of air. Band-passed noise (state-variable
+            // filter), strongly modulated at the blade-passage rate: the "whop-whop" of the air itself.
+            val sx = x / SWISH_WIDTH
+            val sweep = exp(-0.5 * sx * sx)
+            val f = 2.0 * sin(PI * minOf(swishHz * doppler, nyquist) / sampleRate)
             swishLow += f * swishBand
             val high = white() - swishLow - SWISH_DAMPING * swishBand
             swishBand += f * high
-            val swish = rotorNoise * swishBand * (0.35 + 0.65 * g)
+            val swish = rotorNoise * blade * SWISH_GAIN * swishBand * (0.15 + 0.85 * sweep)
+
+            // Downwash: a low roar of the air being moved, pulsing gently with the blades.
+            wash1 += WASH_LOWPASS * (white() - wash1)
+            wash2 += WASH_LOWPASS * (wash1 - wash2)
+            val wash = washLevel * WASH_GAIN * wash2 * (0.7 + 0.3 * sweep)
 
             // Tail rotor buzz.
             tailPhase = wrap(tailPhase + tailPassHz * doppler / sampleRate)
@@ -111,7 +124,7 @@ class HeliSynth(val sampleRate: Int = 44_100, seed: Long = 0x5EED) {
 
             // Air absorption, then distance and panning (equal power, never fully one-sided).
             val a = 1.0 - exp(-TWO_PI * minOf(absorptionHz, nyquist) / sampleRate)
-            absorbed += a * (rotor + swish + tail + motor + gear - absorbed)
+            absorbed += a * (rotor + swish + wash + tail + motor + gear - absorbed)
             val angle = (1.0 + PAN_WIDTH * pan) * PI / 4.0
             val model = absorbed * distanceGain * MODEL_GAIN
             var left = model * cos(angle) * SQRT2
@@ -141,6 +154,8 @@ class HeliSynth(val sampleRate: Int = 44_100, seed: Long = 0x5EED) {
         rotorLevel += k * (t.rotorLevel - rotorLevel)
         sharpness += k * (t.rotorSharpness.coerceIn(0.0, 1.0) - sharpness)
         rotorNoise += k * (t.rotorNoise - rotorNoise)
+        swishHz += k * (t.swishHz - swishHz)
+        washLevel += k * (t.washLevel - washLevel)
         tailPassHz += k * (t.tailPassHz - tailPassHz)
         tailLevel += k * (t.tailLevel - tailLevel)
         motorHz += k * (t.motorHz - motorHz)
@@ -175,8 +190,11 @@ class HeliSynth(val sampleRate: Int = 44_100, seed: Long = 0x5EED) {
         private val SQRT_2PI = sqrt(2.0 * PI)
         private val SQRT2 = sqrt(2.0)
         private const val BLADE_MISMATCH = 0.06 // tracking/balance difference between the two blades
-        private const val SWISH_HZ = 1100.0
         private const val SWISH_DAMPING = 1.2 // state-variable filter 1/Q: a broad band
+        private const val SWISH_WIDTH = 0.16 // share of the blade-passage period each blade's burst lasts
+        private const val SWISH_GAIN = 4.0 // the band-pass keeps ~1/4 of the noise's amplitude
+        private const val WASH_LOWPASS = 0.025 // two one-pole stages, ~180 Hz
+        private const val WASH_GAIN = 12.0
         private const val TAIL_WIDTH = 0.14
         private const val PAN_WIDTH = 0.7
         private const val MODEL_GAIN = 2.0

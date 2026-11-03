@@ -22,8 +22,15 @@ data class SoundParams(
     val rotorLevel: Double = 0.0,
     /** 0 = soft pulses, 1 = sharp "slap" (heavy loading, blades hitting their own wake). */
     val rotorSharpness: Double = 0.0,
-    /** Broadband swish of the blades, pulsing with each passage. */
+    /**
+     * Broadband swish of the blades: each blade sweeping past pushes a burst of air. Grows steeply with tip
+     * speed and blade loading: the "swoosh" of a hard pull.
+     */
     val rotorNoise: Double = 0.0,
+    /** Centre of the swish's frequency band; brighter with tip speed and loading. */
+    val swishHz: Double = 900.0,
+    /** Low roar of the downwash: the air the rotor moves. */
+    val washLevel: Double = 0.0,
     /** Tail rotor blade passages per second: a buzz. */
     val tailPassHz: Double = 0.0,
     val tailLevel: Double = 0.0,

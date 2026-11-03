@@ -32,7 +32,8 @@ class FlightSoundTest {
         val frameSamples = synth.sampleRate / 60
         val buffer = FloatArray(2 * frameSamples)
         val audio = ArrayList<FloatArray>()
-        val moments = HashMap<String, Moment>()
+        val moments = HashMap<String, Moment>() // last frame of each segment
+        val peaks = HashMap<String, Moment>() // loudest swish of each segment
 
         fun fly(seconds: Double, label: String, controls: Controls) {
             repeat((seconds / frame).toInt()) {
@@ -44,6 +45,7 @@ class FlightSoundTest {
                 synth.render(params, buffer)
                 audio += buffer.copyOf()
                 moments[label] = Moment(label, params, source)
+                if (params.rotorNoise > (peaks[label]?.params?.rotorNoise ?: -1.0)) peaks[label] = Moment(label, params, source)
             }
         }
 
@@ -53,6 +55,9 @@ class FlightSoundTest {
         fly(3.0, "lift", idleUp.copy(collective = 0.45))
         fly(0.8, "punch", idleUp.copy(collective = 1.0))
         fly(1.5, "ease", idleUp.copy(collective = 0.3))
+        fly(1.5, "dive", idleUp.copy(collective = -0.4))
+        fly(0.6, "pull", idleUp.copy(collective = 1.0))
+        fly(1.0, "level", idleUp.copy(collective = 0.35))
         fly(4.0, "hold", idleUp.copy(collective = 0.1, throttleHold = true))
 
         val heli = assertIs<Helicopter>(runner.sim.aircraft)
@@ -72,6 +77,13 @@ class FlightSoundTest {
         assertTrue(punch.params.rotorSharpness > lift.params.rotorSharpness)
         assertTrue(punch.params.motorLevel > lift.params.motorLevel, "the motor works harder")
 
+        // Pulling out of a dive loads the blades hard: a loud, bright swoosh and more downwash.
+        val pull = peaks.getValue("pull")
+        assertTrue(pull.source.loading > 1.8, "pull-up loading ${pull.source.loading}")
+        assertTrue(pull.params.rotorNoise > 3 * lift.params.rotorNoise, "${pull.params.rotorNoise} vs ${lift.params.rotorNoise}")
+        assertTrue(pull.params.swishHz > lift.params.swishHz)
+        assertTrue(pull.params.washLevel > 2 * lift.params.washLevel)
+
         val hold = moments.getValue("hold").params
         assertTrue(hold.motorLevel < 1e-3 && hold.gearLevel < 1e-3, "motor unpowered in throttle hold: ${hold.motorLevel}")
         assertTrue(hold.rotorLevel > 0.01, "the rotor still turns")
@@ -79,7 +91,7 @@ class FlightSoundTest {
 
         val out = Paths.get("build/sound/flight.wav")
         writeWav(out, audio, synth.sampleRate)
-        assertTrue(Files.size(out) > 44 + 4 * synth.sampleRate * 19)
+        assertTrue(Files.size(out) > 44 + 4 * synth.sampleRate * 22)
     }
 
     @Test
