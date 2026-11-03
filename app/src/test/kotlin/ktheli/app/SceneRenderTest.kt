@@ -53,16 +53,16 @@ class SceneRenderTest {
         CameraSettings(mode = CameraMode.FOLLOW, followDistance = 1.3, followHeight = 1.0),
     ).use { p ->
         val stopped = p.render(parked, RotorPose(0.0, 0.0, bladeAzimuth = 0.0))
-        val slow = p.render(parked, RotorPose(60.0, 270.0, bladeAzimuth = 0.0))
+        val slow = p.render(parked, RotorPose(190.0, 0.0, bladeAzimuth = 0.0)) // tail held still: it blurs 4.5x sooner
         val fast = p.render(parked, spinning())
         Images.write(stopped, out.resolve("rotor-stopped.png"))
         Images.write(fast, out.resolve("rotor-spinning.png"))
         val pixels = p.width * p.height
         val disc = Images.changed(stopped, fast).size
         val creep = Images.changed(stopped, slow).size
-        println("rotor: %.1f%% of pixels change when spinning up, %.2f%% at 60 rpm".format(100.0 * disc / pixels, 100.0 * creep / pixels))
+        println("rotor: %.1f%% of pixels change when spinning up, %.2f%% at 190 rpm".format(100.0 * disc / pixels, 100.0 * creep / pixels))
         assertTrue(disc > 0.02 * pixels, "the disc covers a large area")
-        assertTrue(creep < disc / 3, "slow blades still look like blades (only the faster tail rotor starts to blur)")
+        assertTrue(creep < disc / 20, "below 200 rpm the main rotor still shows sharp blades, no disc")
     }
 
     @Test

@@ -4,13 +4,16 @@ import ktheli.physics.heli.HelicopterSpec
 import ktheli.physics.math.Vec3
 
 /**
- * When a spinning rotor looks like blades and when like a blurred disc. What matters is how far a blade moves
- * between two rendered frames: a few degrees reads as distinct blades, tens of degrees only as a blur (and
- * drawing sharp blades there just strobes). The blades fade out and the disc fades in between the two thresholds.
+ * When a spinning rotor looks like blades and when like a blurred disc: sharp blades up to [sharpUntilRpm],
+ * cross-fading into the blur disc until [blurredFromRpm]. On a slow display the fade starts earlier, because
+ * sharp blades moving more than [maxSharpDegreesPerFrame] between frames just strobe (and likewise the disc
+ * takes over fully by [maxPartialDegreesPerFrame]).
  */
 data class RotorBlur(
-    val sharpBelowDegreesPerFrame: Double = 12.0,
-    val blurredAboveDegreesPerFrame: Double = 48.0,
+    val sharpUntilRpm: Double = 200.0,
+    val blurredFromRpm: Double = 600.0,
+    val maxSharpDegreesPerFrame: Double = 40.0,
+    val maxPartialDegreesPerFrame: Double = 120.0,
     val bladeOpacityBlurred: Double = 0.1,
     val discOpacityBlurred: Double = 0.9,
     /** The blur disc's texture turns at this fraction of the rotor speed, just enough to read as motion. */
@@ -18,9 +21,10 @@ data class RotorBlur(
 ) {
     /** 0 = sharp blades, 1 = fully blurred, for a rotor at [rpm] rendered at [fps]. */
     fun blur(rpm: Double, fps: Double): Double {
-        val degreesPerFrame = rpm * 6.0 / fps.coerceAtLeast(1.0)
-        val t = (degreesPerFrame - sharpBelowDegreesPerFrame) / (blurredAboveDegreesPerFrame - sharpBelowDegreesPerFrame)
-        return t.coerceIn(0.0, 1.0)
+        val rpmPerDegreePerFrame = fps.coerceAtLeast(1.0) / 6.0 // rpm that moves a blade 1° per frame
+        val start = minOf(sharpUntilRpm, maxSharpDegreesPerFrame * rpmPerDegreePerFrame)
+        val end = maxOf(start + 1.0, minOf(blurredFromRpm, maxPartialDegreesPerFrame * rpmPerDegreePerFrame))
+        return ((rpm - start) / (end - start)).coerceIn(0.0, 1.0)
     }
 
     fun bladeOpacity(blur: Double) = 1.0 + (bladeOpacityBlurred - 1.0) * blur
