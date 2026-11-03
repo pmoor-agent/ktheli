@@ -27,6 +27,7 @@ class UiContext(
     val selectAircraft: (HelicopterModel) -> Unit,
     val changeCamera: (CameraSettings) -> Unit,
     val selectField: (FlyingField) -> Unit,
+    val profiler: () -> FrameProfiler,
 )
 
 /** Immediate-mode UI: call [draw] once per frame between ImGui newFrame/render. */
@@ -36,6 +37,7 @@ class Ui(private val ctx: UiContext) {
     val controlsWindow = ControlsWindow(ctx.input, ctx.controls)
     val environmentWindow = EnvironmentWindow({ ctx.runner.environment }, ctx.changeEnvironment)
     val cameraWindow = CameraWindow({ ctx.view.camera }, ctx.changeCamera)
+    val performanceWindow = PerformanceWindow(ctx.profiler, { ctx.runner.sim.tickRateHz })
     private val showDemo = ImBoolean(false)
     private var openAbout = false
 
@@ -53,6 +55,7 @@ class Ui(private val ctx: UiContext) {
         controlsWindow.draw(menuBarHeight)
         environmentWindow.draw(menuBarHeight)
         cameraWindow.draw(menuBarHeight)
+        performanceWindow.draw(menuBarHeight)
         if (showTelemetry.get()) drawTelemetryWindow()
         if (showDemo.get()) ImGui.showDemoWindow(showDemo)
         drawAbout()
@@ -68,6 +71,7 @@ class Ui(private val ctx: UiContext) {
             Action.CONTROLS_DIALOG -> controlsWindow.open.toggle()
             Action.ENVIRONMENT_DIALOG -> environmentWindow.open.toggle()
             Action.TELEMETRY -> showTelemetry.toggle()
+            Action.PERFORMANCE -> performanceWindow.open.toggle()
             Action.HUD -> showHud.toggle()
             Action.AUTO_ZOOM -> ctx.view.camera.let { ctx.changeCamera(it.copy(autoZoom = !it.autoZoom)) }
             Action.CAMERA_MODE -> ctx.view.camera.let {
@@ -160,6 +164,7 @@ class Ui(private val ctx: UiContext) {
         if (Gui.beginMenu("View")) {
             actionItem("HUD", Action.HUD, showHud.get())
             actionItem("Telemetry", Action.TELEMETRY, showTelemetry.get())
+            actionItem("Performance", Action.PERFORMANCE, performanceWindow.open.get())
             ImGui.separator()
             CameraMode.entries.forEachIndexed { i, mode ->
                 val shortcut = if (i == 0) shortcut(Action.CAMERA_MODE) else ""

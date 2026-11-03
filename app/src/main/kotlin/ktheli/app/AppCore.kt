@@ -25,7 +25,7 @@ class AppCore(
     val view = ViewSettings(settings.camera)
     var controls: Controls = Controls.NEUTRAL
         private set
-    val ui = Ui(UiContext(runner, input, view, telemetry, { controls }, host, ::changeEnvironment, ::selectAircraft, ::changeCamera, ::selectField))
+    val ui = Ui(UiContext(runner, input, view, telemetry, { controls }, host, ::changeEnvironment, ::selectAircraft, ::changeCamera, ::selectField, { profiler }))
 
     fun selectField(field: FlyingField) {
         runner.select(field)
@@ -53,13 +53,19 @@ class AppCore(
         runCatching { settingsStore.save(newSettings) }.onFailure { input.showStatus("Could not save settings: ${it.message}") }
     }
 
+    /** Frame timing for the Performance window; display only. */
+    val profiler = FrameProfiler(1.0 / runner.sim.tickRateHz)
+
     fun update(frameSeconds: Double, keyboardEnabled: Boolean) {
-        val frame = input.update(frameSeconds, keyboardEnabled)
+        val frame = profiler.measure(FrameProfiler.Section.INPUT) { input.update(frameSeconds, keyboardEnabled) }
         controls = frame.controls
         frame.actions.forEach(ui::perform)
-        runner.advance(frameSeconds, controls)
+        profiler.ticks(profiler.measure(FrameProfiler.Section.PHYSICS) { runner.advance(frameSeconds, controls) })
         telemetry.record(runner.sim.time, runner.sim.aircraft, controls)
     }
+
+    /** Builds this frame's UI (inside an ImGui frame). */
+    fun drawUi() = profiler.measure(FrameProfiler.Section.UI) { ui.draw() }
 
     /** A key went down; modifiers are read from the keyboard state. */
     fun keyDown(keycode: Int) {

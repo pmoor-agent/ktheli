@@ -129,6 +129,12 @@ settings persist with the others.
 shear, plus temperature and field elevation (air density). Presets range from *Calm* to *Gusty* and *High & hot*.
 The windsock left of the field and the HUD show the wind; settings persist in `~/.config/ktheli/settings.json`.
 
+**Performance:** *View → Performance* (`F6`) shows where each frame's time goes: input, physics, UI build,
+3D scene and UI draw on the CPU, plus GPU time from OpenGL timer queries where the driver has them. *Headroom*
+is the share of the frame interval left after the busier of CPU and GPU, i.e. how much more work fits before the
+frame rate drops; the physics line shows ticks per frame, microseconds per tick and how many times faster than
+real time the simulation could run. A chart plots the last 10 s.
+
 ## User interface
 
 The window has a menu bar (Dear ImGui via [imgui-java](https://github.com/SpaiR/imgui-java)) above the 3D view:
@@ -136,7 +142,7 @@ The window has a menu bar (Dear ImGui via [imgui-java](https://github.com/SpaiR/
 - **Sim**: pause/resume, reset, quit
 - **Aircraft**: model selection (toy heli for now)
 - **Input**: *Controls...* and device selection
-- **View**: HUD, *Telemetry* (live ImPlot charts), camera auto-zoom, screenshot
+- **View**: HUD, *Telemetry* (live ImPlot charts), *Performance*, camera, binoculars, screenshot
 - **Help**: controls, ImGui demo window, about
 
 Menu shortcuts always show the current key bindings.
@@ -166,6 +172,7 @@ Window layout persists in `~/.config/ktheli/imgui.ini`; bindings and calibration
 | `P` / `R` | Pause / reset |
 | `F1` / `F2` / `F3` / `F4` | Controls dialog / telemetry / HUD / environment |
 | `V` / `F5` / `Z` / `B` | Camera view (cycle) / camera settings / auto-zoom / binoculars |
+| `F6` | Performance window |
 | `F12` | Save a screenshot to the working directory |
 | `Tab` | Next joystick |
 | `Ctrl+Q` | Quit |

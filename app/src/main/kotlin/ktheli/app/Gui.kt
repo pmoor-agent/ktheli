@@ -130,22 +130,25 @@ object Gui {
     // --- Text ------------------------------------------------------------------------------------
 
     fun text(s: String) {
-        ImGui.text(s)
+        ImGui.text(literal(s))
         UiTrace.text(s)
     }
 
     fun textDisabled(s: String) {
-        ImGui.textDisabled(s)
+        ImGui.textDisabled(literal(s))
         UiTrace.text(s)
     }
 
     fun textWrapped(s: String) {
-        ImGui.textWrapped(s)
+        ImGui.textWrapped(literal(s))
         UiTrace.text(s)
     }
 
     fun textColored(r: Float, g: Float, b: Float, a: Float, s: String) {
-        ImGui.textColored(r, g, b, a, s)
+        ImGui.textColored(r, g, b, a, literal(s))
         UiTrace.text(s)
     }
+
+    /** ImGui's text calls treat their argument as a printf format: escape `%` so it prints as is. */
+    private fun literal(s: String) = if ('%' in s) s.replace("%", "%%") else s
 }

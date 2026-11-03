@@ -5,6 +5,7 @@ import imgui.extension.implot.ImPlot
 import imgui.gl3.ImGuiImplGl3
 import ktheli.app.AppCore
 import ktheli.app.AppHost
+import ktheli.app.GpuTimer
 import ktheli.app.Joystick
 import ktheli.app.Scene
 import ktheli.app.SettingsStore
@@ -84,6 +85,7 @@ class UiDriver(
     private var offscreen: Offscreen? = null
     private var gl3: ImGuiImplGl3? = null
     private var scene: Scene? = null
+    private var gpuTimer: GpuTimer? = null
 
     init {
         if (gl) HeadlessGl.ensure()
@@ -96,6 +98,7 @@ class UiDriver(
         if (gl) {
             offscreen = Offscreen(width, height)
             gl3 = ImGuiImplGl3().also { it.init() } // creates the font texture itself, like the window
+            gpuTimer = GpuTimer()
         } else {
             io.fonts.addFontDefault()
             io.fonts.build()
@@ -121,19 +124,24 @@ class UiDriver(
         UiTrace.beginFrame()
         gl3?.newFrame() // the GL renderer creates/updates the font texture, as in the window
         ImGui.newFrame()
-        core.ui.draw()
+        core.drawUi()
         ImGui.render()
         UiTrace.endFrame()
         if (gl) renderFrame()
+        core.profiler.endFrame(DT)
         frames++
     }
 
     /** Draws this frame like the window: the world below the menu bar, then the UI on top. */
     private fun renderFrame() {
+        val timer = gpuTimer!!
+        timer.begin()
         offscreen!!.begin()
         WorldView.render(core, scene!!, width, height, width.toFloat(), height.toFloat(), DT.toFloat())
         GL11.glViewport(0, 0, width, height)
-        gl3!!.renderDrawData(ImGui.getDrawData())
+        core.profiler.measure(ktheli.app.FrameProfiler.Section.UI_RENDER) { gl3!!.renderDrawData(ImGui.getDrawData()) }
+        timer.end()
+        core.profiler.gpu(timer.poll())
     }
 
     /** The last rendered frame (GL mode only). */
@@ -181,8 +189,22 @@ class UiDriver(
 
     // --- Mouse -----------------------------------------------------------------------------------
 
+    /** Scrolls [path] into view if it is inside a scrolled-away region. */
+    fun reveal(path: String): UiTrace.Item {
+        var item = waitFor(path)
+        if (item.visible) return item
+        UiTrace.reveal = path
+        try {
+            frame(SETTLE_FRAMES)
+        } finally {
+            UiTrace.reveal = null
+        }
+        item = item(path)
+        return item
+    }
+
     fun click(path: String) {
-        val item = waitFor(path)
+        val item = reveal(path)
         check(item.enabled) { "Widget '$path' is disabled" }
         check(item.visible) { "Widget '$path' is not visible" }
         io.addMousePosEvent(item.centerX, item.centerY)
@@ -243,7 +265,6 @@ class UiDriver(
 
     // --- Output ----------------------------------------------------------------------------------
 
-    /** Renders the last frame's UI (no 3D scene) to a PNG. */
     /** Saves the last frame: the real render in GL mode, else the UI rasterized on the CPU (no 3D scene). */
     fun snapshot(file: Path) {
         Files.createDirectories(file.toAbsolutePath().parent)
@@ -251,6 +272,7 @@ class UiDriver(
     }
 
     override fun close() {
+        gpuTimer?.close()
         gl3?.shutdown()
         scene?.dispose()
         offscreen?.close()
