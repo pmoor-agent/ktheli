@@ -31,3 +31,6 @@ object DMath {
     fun toRadians(deg: Double): Double = deg * (PI / 180.0)
     fun toDegrees(rad: Double): Double = rad * (180.0 / PI)
 }
+
+/** Degrees to radians, for readable parameter tables: `12.5.deg`. */
+val Double.deg: Double get() = DMath.toRadians(this)
