@@ -4,6 +4,7 @@ import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.GL20
 import com.badlogic.gdx.graphics.PerspectiveCamera
+import com.badlogic.gdx.graphics.Texture
 import com.badlogic.gdx.graphics.VertexAttributes.Usage
 import com.badlogic.gdx.graphics.g3d.Environment
 import com.badlogic.gdx.graphics.g3d.Material
@@ -12,11 +13,14 @@ import com.badlogic.gdx.graphics.g3d.ModelBatch
 import com.badlogic.gdx.graphics.g3d.ModelInstance
 import com.badlogic.gdx.graphics.g3d.attributes.BlendingAttribute
 import com.badlogic.gdx.graphics.g3d.attributes.ColorAttribute
+import com.badlogic.gdx.graphics.g3d.attributes.DepthTestAttribute
+import com.badlogic.gdx.graphics.g3d.attributes.FloatAttribute
 import com.badlogic.gdx.graphics.g3d.attributes.IntAttribute
 import com.badlogic.gdx.graphics.g3d.environment.DirectionalLight
+import com.badlogic.gdx.graphics.g3d.loader.ObjLoader
+import com.badlogic.gdx.graphics.g3d.model.data.ModelData
 import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder
-import com.badlogic.gdx.graphics.g3d.utils.shapebuilders.BoxShapeBuilder
-import com.badlogic.gdx.graphics.g3d.utils.shapebuilders.CylinderShapeBuilder
+import com.badlogic.gdx.graphics.g3d.utils.TextureProvider
 import com.badlogic.gdx.math.Matrix4
 import com.badlogic.gdx.math.Quaternion
 import com.badlogic.gdx.math.Vector3
@@ -67,7 +71,7 @@ class Scene(private val view: ViewSettings) : Disposable {
                 .also(models::add),
         )
 
-        heli = ModelInstance(buildHeli(mb, lit).also(models::add))
+        heli = ModelInstance(loadHeli().also(models::add))
 
         windsockPole = ModelInstance(
             mb.createBox(0.05f, WINDSOCK_HEIGHT.toFloat(), 0.05f, Material(ColorAttribute.createDiffuse(Color.LIGHT_GRAY)), lit)
@@ -85,31 +89,57 @@ class Scene(private val view: ViewSettings) : Disposable {
         )
     }
 
-    /** Heli geometry built directly in body FRD coordinates (x fwd, y right, z down, origin at CG). */
-    private fun buildHeli(mb: ModelBuilder, lit: Long): Model {
-        val skid = ToyHeli.SKID_DROP.toFloat()
-        val canopy = Material(ColorAttribute.createDiffuse(Color(0.95f, 0.45f, 0.1f, 1f)))
-        val dark = Material(ColorAttribute.createDiffuse(Color(0.15f, 0.15f, 0.17f, 1f)))
-        mb.begin()
-        fun box(id: String, mat: Material, cx: Float, cy: Float, cz: Float, w: Float, h: Float, d: Float) {
-            mb.node().id = id
-            BoxShapeBuilder.build(mb.part(id, GL20.GL_TRIANGLES, lit, mat), cx, cy, cz, w, h, d)
-        }
-        box("fuselage", canopy, 0.04f, 0f, 0f, 0.34f, 0.11f, 0.15f)
-        box("boom", dark, -0.36f, 0f, -0.03f, 0.48f, 0.022f, 0.022f)
-        box("fin", canopy, -0.58f, 0f, 0.0f, 0.07f, 0.004f, 0.11f)
-        box("mast", dark, 0f, 0f, -0.12f, 0.014f, 0.014f, 0.1f)
-        for (side in listOf(-1f, 1f)) {
-            box("skid$side", dark, 0.02f, side * 0.075f, skid - 0.006f, 0.32f, 0.012f, 0.012f)
-            box("strut$side", dark, 0.02f, side * 0.06f, skid / 2 + 0.03f, 0.012f, 0.012f, skid - 0.06f)
-        }
+    /** Loads the Align T-Rex 450 model (FRD coordinates: x fwd, y right, z down, origin at CG). */
+    private fun loadHeli(): Model {
+        val data = ObjLoader().loadModelData(Gdx.files.internal("models/trex450/trex450.obj"), ObjLoader.ObjLoaderParameters(true))
+        recenterNode(data, "rotor", MAIN_HUB)
+        recenterNode(data, "rotorBlades", MAIN_HUB)
+        recenterNode(data, "tailRotor", TAIL_HUB)
+        recenterNode(data, "tailBlades", TAIL_HUB)
 
-        // Rotor discs: cylinders are built along Y, so the main disc is turned to lie along body Z.
-        mb.node().apply { id = "rotor"; translation.set(0f, 0f, -0.17f); rotation.set(Vector3.X, 90f) }
-        CylinderShapeBuilder.build(mb.part("rotor", GL20.GL_TRIANGLES, lit, translucent(Color.LIGHT_GRAY, 0.3f)), 0.72f, 0.004f, 0.72f, 48)
-        mb.node().apply { id = "tailRotor"; translation.set(-0.58f, 0.03f, -0.06f) }
-        CylinderShapeBuilder.build(mb.part("tailRotor", GL20.GL_TRIANGLES, lit, translucent(Color.LIGHT_GRAY, 0.3f)), 0.15f, 0.003f, 0.15f, 24)
-        return mb.end()
+        val textures = TextureProvider.FileTextureProvider(
+            Texture.TextureFilter.MipMapLinearLinear,
+            Texture.TextureFilter.Linear,
+            Texture.TextureWrap.ClampToEdge,
+            Texture.TextureWrap.ClampToEdge,
+            true,
+        )
+        return Model(data, textures).apply {
+            getMaterial("trex450_body")?.apply {
+                set(FloatAttribute.createShininess(48f))
+                set(IntAttribute.createCullFace(GL20.GL_NONE))
+            }
+            getMaterial("rotor_blur_mat")?.apply {
+                set(BlendingAttribute(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA, 0f))
+                set(DepthTestAttribute(GL20.GL_LEQUAL, false))
+                set(IntAttribute.createCullFace(GL20.GL_NONE))
+            }
+            // Give the solid 3D blades their own blending material instance so they can soften at high RPM.
+            val bladeMat = getMaterial("trex450_body")?.copy()?.apply {
+                id = "trex450_blades"
+                set(BlendingAttribute(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA, 1f))
+            }
+            if (bladeMat != null) {
+                materials.add(bladeMat)
+                for (id in listOf("rotorBlades", "tailBlades")) {
+                    getNode(id)?.parts?.forEach { it.material = bladeMat }
+                }
+            }
+        }
+    }
+
+    private fun recenterNode(data: ModelData, nodeId: String, pivot: Vector3) {
+        val node = data.nodes.firstOrNull { it.id == nodeId } ?: return
+        val mesh = data.meshes.firstOrNull { it.id == node.meshId } ?: return
+        val stride = mesh.attributes.sumOf { it.numComponents }
+        var i = 0
+        while (i < mesh.vertices.size) {
+            mesh.vertices[i] -= pivot.x
+            mesh.vertices[i + 1] -= pivot.y
+            mesh.vertices[i + 2] -= pivot.z
+            i += stride
+        }
+        node.translation.set(pivot)
     }
 
     private val sockRotation = Quaternion()
@@ -130,23 +160,38 @@ class Scene(private val view: ViewSettings) : Disposable {
 
     private val tilt = Quaternion()
     private val tiltPart = Quaternion()
+    private var mainAzimuthDeg = 32f
+    private var tailAzimuthDeg = 20f
 
-    /** Rotor disc node: lie along body z, then tilt back (about body y) and right (about body x). */
-    private fun tiltRotor(back: Double, right: Double) {
-        val node = heli.getNode("rotor") ?: return
-        tilt.set(Vector3.X, Math.toDegrees(right).toFloat())
-        tilt.mul(tiltPart.set(Vector3.Y, Math.toDegrees(back).toFloat()))
-        tilt.mul(tiltPart.set(Vector3.X, 90f))
-        node.rotation.set(tilt)
-        heli.calculateTransforms()
-    }
+    /** Tilts the main rotor tip-path plane (back about body y, right about body x) and spins the hubs. */
+    private fun updateRotors(rotor: RotorView, dt: Float) {
+        val spin = rotor.spin.coerceIn(0f, 1f)
+        if (spin > 0.001f) {
+            // Visual rotation rate scales with rotor spin (clockwise about +z seen from above).
+            mainAzimuthDeg = (mainAzimuthDeg + spin * 1950f * dt) % 360f
+            tailAzimuthDeg = (tailAzimuthDeg + spin * 4300f * dt) % 360f
+        }
 
-    private fun setRotorOpacity(alpha: Float) {
+        val blurAlpha = (spin * 0.92f).coerceIn(0f, 0.92f)
+        val bladeAlpha = (1f - spin * 0.68f).coerceIn(0.32f, 1f)
         for (id in listOf("rotor", "tailRotor")) {
             heli.getNode(id)?.parts?.forEach { part ->
-                (part.material.get(BlendingAttribute.Type) as? BlendingAttribute)?.opacity = alpha
+                (part.material.get(BlendingAttribute.Type) as? BlendingAttribute)?.opacity = blurAlpha
             }
         }
+        for (id in listOf("rotorBlades", "tailBlades")) {
+            heli.getNode(id)?.parts?.forEach { part ->
+                (part.material.get(BlendingAttribute.Type) as? BlendingAttribute)?.opacity = bladeAlpha
+            }
+        }
+
+        tilt.set(Vector3.X, Math.toDegrees(rotor.tiltRight).toFloat())
+        tilt.mul(tiltPart.set(Vector3.Y, Math.toDegrees(rotor.tiltBack).toFloat()))
+        heli.getNode("rotor")?.rotation?.set(tilt)?.mul(tiltPart.set(Vector3.Z, mainAzimuthDeg * 0.35f))
+        heli.getNode("rotorBlades")?.rotation?.set(tilt)?.mul(tiltPart.set(Vector3.Z, mainAzimuthDeg))
+        heli.getNode("tailBlades")?.rotation?.set(Vector3.Y, tailAzimuthDeg)
+        heli.getNode("tailRotor")?.rotation?.set(Vector3.Y, tailAzimuthDeg * 0.35f)
+        heli.calculateTransforms()
     }
 
     private fun translucent(c: Color, alpha: Float) = Material(
@@ -165,8 +210,7 @@ class Scene(private val view: ViewSettings) : Disposable {
     /** [windAtSock] is the wind (world NED) at [windsockTop]. */
     fun render(state: RigidBodyState, rotor: RotorView, windAtSock: Vec3, x: Int, y: Int, width: Int, height: Int) {
         orientWindsock(windAtSock)
-        setRotorOpacity(0.04f + 0.28f * rotor.spin.coerceIn(0f, 1f))
-        tiltRotor(rotor.tiltBack, rotor.tiltRight)
+        updateRotors(rotor, Gdx.graphics.deltaTime.coerceIn(0f, 0.05f))
         Gdx.gl.glViewport(x, y, width, height)
         camera.viewportWidth = width.toFloat()
         camera.viewportHeight = height.toFloat()
@@ -219,6 +263,8 @@ class Scene(private val view: ViewSettings) : Disposable {
 
     private companion object {
         val PILOT_EYE = Vector3(0f, 1.7f, 0f)
+        val MAIN_HUB = Vector3(0f, 0f, -0.15f)
+        val TAIL_HUB = Vector3(-0.47f, 0.028f, -0.03f)
         const val VISIBLE_HALF_WIDTH = 3.5f // m of scene visible either side of the heli when zoomed
         const val FIXED_FOV = 50f
         val WINDSOCK = Vec3(9.0, -5.0, 0.0) // NED: 9 m ahead, 5 m to the left of the pilot
