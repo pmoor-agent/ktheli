@@ -33,6 +33,7 @@ data class CameraSettings(
     val followHeight: Double = 0.5,
     val followSmoothing: Double = 0.5,
     val followFov: Double = 60.0,
+    val binoculars: BinocularSettings = BinocularSettings(),
 )
 
 /** Where the camera is and what it looks at, in world NED coordinates. */

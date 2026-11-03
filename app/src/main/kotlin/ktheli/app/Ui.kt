@@ -1,5 +1,6 @@
 package ktheli.app
 
+import imgui.ImColor
 import imgui.ImGui
 import imgui.extension.implot.ImPlot
 import imgui.extension.implot.flag.ImPlotAxis
@@ -47,6 +48,7 @@ class Ui(private val ctx: UiContext) {
         ctx.input.flightModeCount = helicopter?.transmitter?.setup?.modes?.size ?: 1
         drawMenuBar()
         if (showHud.get()) drawHud()
+        if (ctx.view.camera.binoculars.enabled) drawBinocularFrame()
         controlsWindow.draw(menuBarHeight)
         environmentWindow.draw(menuBarHeight)
         cameraWindow.draw(menuBarHeight)
@@ -71,6 +73,9 @@ class Ui(private val ctx: UiContext) {
                 ctx.changeCamera(it.copy(mode = CameraMode.entries[(it.mode.ordinal + 1) % CameraMode.entries.size]))
             }
             Action.CAMERA_DIALOG -> cameraWindow.open.toggle()
+            Action.BINOCULARS -> ctx.view.camera.let {
+                ctx.changeCamera(it.copy(binoculars = it.binoculars.copy(enabled = !it.binoculars.enabled)))
+            }
             Action.SCREENSHOT -> ctx.host.requestScreenshot()
             Action.NEXT_DEVICE -> ctx.input.selectNextDevice()
             Action.QUIT -> ctx.host.exit()
@@ -149,6 +154,7 @@ class Ui(private val ctx: UiContext) {
                 val shortcut = if (i == 0) shortcut(Action.CAMERA_MODE) else ""
                 if (Gui.menuItem(mode.label, shortcut, ctx.view.camera.mode == mode)) ctx.changeCamera(ctx.view.camera.copy(mode = mode))
             }
+            actionItem("Binoculars", Action.BINOCULARS, ctx.view.camera.binoculars.enabled)
             actionItem("Camera settings...", Action.CAMERA_DIALOG, cameraWindow.open.get())
             ImGui.separator()
             actionItem("Save screenshot", Action.SCREENSHOT)
@@ -194,6 +200,26 @@ class Ui(private val ctx: UiContext) {
             }
             if (ctx.runner.paused) Gui.textColored(1f, 0.8f, 0.2f, 1f, "PAUSED")
             modePrompt()?.let { Gui.textColored(1f, 0.8f, 0.2f, 1f, it) }
+        }
+        Gui.end()
+    }
+
+    /** A frame and magnification label over the binocular inset (which the 3D renderer draws underneath). */
+    private fun drawBinocularFrame() {
+        val io = ImGui.getIO()
+        val r = Binoculars.layout(io.displaySizeX, io.displaySizeY - menuBarHeight, menuBarHeight, ctx.view.camera.binoculars)
+        val flags = ImGuiWindowFlags.NoDecoration or ImGuiWindowFlags.NoBackground or ImGuiWindowFlags.NoInputs or
+            ImGuiWindowFlags.NoSavedSettings or ImGuiWindowFlags.NoFocusOnAppearing or ImGuiWindowFlags.NoNav
+        ImGui.setNextWindowPos(r.x, r.y)
+        ImGui.setNextWindowSize(r.width, r.height)
+        if (Gui.begin("##binoculars", flags = flags)) {
+            // The frame straddles the window edge, so draw it unclipped on the foreground list.
+            val frame = ImGui.getForegroundDrawList()
+            frame.addRect(r.x - 1f, r.y - 1f, r.x + r.width + 1f, r.y + r.height + 1f, ImColor.rgba(20, 20, 24, 230), 0f, 0, 4f)
+            frame.addRect(r.x, r.y, r.x + r.width, r.y + r.height, ImColor.rgba(235, 235, 240, 230), 0f, 0, 1.5f)
+            ImGui.getWindowDrawList().addRectFilled(r.x, r.y, r.x + 150f, r.y + ImGui.getTextLineHeightWithSpacing() + 6f, ImColor.rgba(0, 0, 0, 120))
+            val m = ctx.view.binocularMagnification
+            Gui.textColored(1f, 1f, 1f, 0.95f, if (m > 0.0) "BINOCULARS x%.1f".format(m) else "BINOCULARS")
         }
         Gui.end()
     }

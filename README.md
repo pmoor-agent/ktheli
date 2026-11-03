@@ -110,7 +110,9 @@ Sticks command rotation rates, as with any flybarless unit: centered sticks hold
 **Camera:** *View* switches between *Pilot's eye* (standing at the field, like a real RC pilot) and *Follow*
 (flowing along behind the model at a fixed distance); `V` cycles them. *View → Camera settings...* (`F5`) has
 auto-zoom and field of view for the pilot's eye, and distance, height, smoothing and field of view for the follow
-camera (`Z` still toggles auto-zoom). Camera settings persist with the others.
+camera (`Z` still toggles auto-zoom). *Binoculars* (`B`) add a magnified inset from the same viewpoint, sized so
+the model fills a set share of it at any distance, with size, framing and corner in the camera settings. Camera
+settings persist with the others.
 
 **Wind and weather:** *Sim → Environment...* (`F4`) sets wind speed and direction, turbulence, gusts and wind
 shear, plus temperature and field elevation (air density). Presets range from *Calm* to *Gusty* and *High & hot*.
@@ -152,7 +154,7 @@ Window layout persists in `~/.config/ktheli/imgui.ini`; bindings and calibration
 | `F` | Flight mode (cycle) |
 | `P` / `R` | Pause / reset |
 | `F1` / `F2` / `F3` / `F4` | Controls dialog / telemetry / HUD / environment |
-| `V` / `F5` / `Z` | Camera view (cycle) / camera settings / auto-zoom |
+| `V` / `F5` / `Z` / `B` | Camera view (cycle) / camera settings / auto-zoom / binoculars |
 | `F12` | Save a screenshot to the working directory |
 | `Tab` | Next joystick |
 | `Ctrl+Q` | Quit |

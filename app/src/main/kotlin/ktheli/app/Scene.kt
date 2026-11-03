@@ -35,6 +35,7 @@ class Scene(private val view: ViewSettings) : Disposable {
         far = 1000f
     }
     private val rig = CameraRig()
+    private val inset = PerspectiveCamera(10f, 1f, 1f)
 
     private val batch = ModelBatch()
     private val environment = Environment().apply {
@@ -94,8 +95,15 @@ class Scene(private val view: ViewSettings) : Disposable {
     /** World position of the windsock's top, where the app should sample the wind for [render]. */
     val windsockTop: Vec3 get() = Vec3(WINDSOCK.x, WINDSOCK.y, -WINDSOCK_HEIGHT)
 
-    /** [windAtSock] is the wind (world NED) at [windsockTop]. */
-    fun render(state: RigidBodyState, rotors: RotorPose, windAtSock: Vec3, x: Int, y: Int, width: Int, height: Int) {
+    /** A viewport in back-buffer pixels, origin at the bottom left (OpenGL convention). */
+    data class Viewport(val x: Int, val y: Int, val width: Int, val height: Int)
+
+    /**
+     * Renders the 3D view into [main] and, if given, the binocular inset into [binoculars]. [windAtSock] is the
+     * wind (world NED) at [windsockTop].
+     */
+    fun render(state: RigidBodyState, rotors: RotorPose, windAtSock: Vec3, main: Viewport, binoculars: Viewport? = null) {
+        val (x, y, width, height) = main
         val visual = model?.visual ?: return
         val dt = Gdx.graphics.deltaTime.coerceIn(0f, 0.1f)
         val fps = if (dt > 0f) 1f / dt else 60f
@@ -118,7 +126,37 @@ class Scene(private val view: ViewSettings) : Disposable {
         camera.lookAt(pose.target.toGdx())
         camera.update()
 
-        batch.begin(camera)
+        drawWorld(camera)
+
+        if (binoculars != null) {
+            // Same position and target as the main camera, narrower field of view sized to the model.
+            val distance = (pose.target - pose.position).length()
+            val fov = Binoculars.fov(distance, visual.rotorRadius, view.camera.binoculars.framing, pose.fovDegrees)
+            view.binocularMagnification = Binoculars.magnification(pose.fovDegrees, fov)
+            inset.position.set(camera.position)
+            inset.fieldOfView = fov.toFloat()
+            inset.viewportWidth = binoculars.width.toFloat()
+            inset.viewportHeight = binoculars.height.toFloat()
+            inset.near = maxOf(0.05f, (distance * 0.5).toFloat())
+            inset.far = (distance + 500.0).toFloat()
+            inset.up.set(Vector3.Y)
+            inset.lookAt(pose.target.toGdx())
+            inset.update()
+
+            Gdx.gl.glViewport(binoculars.x, binoculars.y, binoculars.width, binoculars.height)
+            Gdx.gl.glEnable(GL20.GL_SCISSOR_TEST)
+            Gdx.gl.glScissor(binoculars.x, binoculars.y, binoculars.width, binoculars.height)
+            Gdx.gl.glClearColor(SKY.r, SKY.g, SKY.b, 1f)
+            Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT or GL20.GL_DEPTH_BUFFER_BIT)
+            drawWorld(inset)
+            Gdx.gl.glDisable(GL20.GL_SCISSOR_TEST)
+        } else {
+            view.binocularMagnification = 0.0
+        }
+    }
+
+    private fun drawWorld(cam: PerspectiveCamera) {
+        batch.begin(cam)
         batch.render(ground, environment)
         batch.render(grid)
         batch.render(shadow)
@@ -151,6 +189,7 @@ class Scene(private val view: ViewSettings) : Disposable {
 
     private companion object {
         val WINDSOCK = Vec3(9.0, -5.0, 0.0) // NED: 9 m ahead, 5 m to the left of the pilot
+        val SKY = Color(0.55f, 0.72f, 0.92f, 1f)
         const val WINDSOCK_HEIGHT = 3.0
         const val SOCK_LENGTH = 0.9f
     }
