@@ -182,8 +182,21 @@ fun `rebinding a key`() = uiTest { ui ->
   row names joined with `/`, ending in the widget's visible label (or explicit trace name). `ui.dump()` lists
   every clickable path of the current frame; `ui.texts()` / `waitForText()` see the visible text.
 - Mouse clicks go through ImGui's IO; keys go through the app's own key handling.
-- `UiSnapshotTest` renders a tour of the UI to `app/build/ui-snapshots/` with a small software rasterizer
-  (the 3D scene isn't drawn there).
+- `UiSnapshotTest` renders a tour of the UI to `app/build/ui-snapshots/`.
+### Rendering headlessly
+
+`UiDriver(gl = true)` (or `glTest { }`) renders every frame for real, the 3D scene and the ImGui UI exactly as
+the window does, into an offscreen framebuffer; `ui.image()` reads it back. `HeadlessGl` creates the OpenGL
+context through Mesa's EGL *surfaceless* platform: no X server, Wayland or window at all, only `libEGL`
+(Fedora: `mesa-libEGL`). Tests run on Mesa's software rasterizer (llvmpipe) by default so pixels match across
+machines; `-Pgpu` renders on the GPU. Where EGL is missing, GL tests are skipped and snapshots fall back to a
+CPU rasterizer of the UI alone.
+
+- `SceneRenderTest` checks what the scene shows: blades vs blur disc, disc tilt direction, binocular
+  magnification against its label, the follow camera keeping the model framed through a scripted flight.
+- Golden images in `app/src/test/resources/golden/` are compared with a tolerance (`Images.assertGolden`);
+  on a mismatch the actual image and a diff land in `app/build/golden-failures/`. After an intended visual
+  change, regenerate with `./gradlew :app:test -PupdateGolden`, review and commit the images.
 - Use `Gui.*` instead of `ImGui.*` for new widgets and texts so tests can find them.
 
 ### Development hooks (environment variables)

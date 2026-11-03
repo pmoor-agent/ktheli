@@ -2,13 +2,18 @@ package ktheli.app.harness
 
 import imgui.ImGui
 import imgui.extension.implot.ImPlot
+import imgui.gl3.ImGuiImplGl3
 import ktheli.app.AppCore
 import ktheli.app.AppHost
 import ktheli.app.Joystick
+import ktheli.app.Scene
 import ktheli.app.SettingsStore
 import ktheli.app.UiTrace
+import ktheli.app.WorldView
 import ktheli.app.applyKtheliStyle
 import ktheli.input.ProfileStore
+import org.lwjgl.opengl.GL11
+import java.awt.image.BufferedImage
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.math.ceil
@@ -33,7 +38,7 @@ class ScriptedJoystick(
 }
 
 /**
- * Drives the real [AppCore] UI headlessly: no window, no GL. Each [frame] advances a fixed 1/60 s, input is
+ * Drives the real [AppCore] UI headlessly: no window (and, unless [gl], no GL). Each [frame] advances a fixed 1/60 s, input is
  * injected through ImGui's IO (mouse) or the app's own key path (keyboard), and widgets are found by their
  * [UiTrace] paths. Use [dump] to list what is clickable right now and [snapshot] to render the UI to a PNG.
  *
@@ -44,6 +49,12 @@ class UiDriver(
     val height: Int = 800,
     /** Where profiles and settings live; a fresh temp directory (deleted on [close]) unless given. */
     configDir: Path? = null,
+    /**
+     * Render every frame for real (3D world + ImGui) into an offscreen framebuffer via [HeadlessGl], exactly
+     * as the window does. Without it the UI logic runs without any rendering and [snapshot] rasterizes the
+     * UI on the CPU over a flat sky.
+     */
+    val gl: Boolean = false,
 ) : AutoCloseable {
     val joystick = ScriptedJoystick()
     private val held = HashSet<Int>()
@@ -69,17 +80,27 @@ class UiDriver(
 
     val core: AppCore
     private val io get() = ImGui.getIO()
-    private val renderer: SoftwareRenderer
+    private var renderer: SoftwareRenderer? = null
+    private var offscreen: Offscreen? = null
+    private var gl3: ImGuiImplGl3? = null
+    private var scene: Scene? = null
 
     init {
+        if (gl) HeadlessGl.ensure()
         ImGui.createContext()
         ImPlot.createContext()
         io.setIniFilename(null)
-        io.fonts.addFontDefault()
-        io.fonts.build()
         io.setDisplaySize(width.toFloat(), height.toFloat())
+        io.setDisplayFramebufferScale(1f, 1f)
         applyKtheliStyle()
-        renderer = SoftwareRenderer(io.fonts)
+        if (gl) {
+            offscreen = Offscreen(width, height)
+            gl3 = ImGuiImplGl3().also { it.init() } // creates the font texture itself, like the window
+        } else {
+            io.fonts.addFontDefault()
+            io.fonts.build()
+            renderer = SoftwareRenderer(io.fonts)
+        }
         UiTrace.enabled = true
         core = AppCore(
             joysticks = { if (joystick.connected) listOf(joystick.snapshot()) else emptyList() },
@@ -88,6 +109,7 @@ class UiDriver(
             store = ProfileStore(this.configDir.resolve("input.json")),
             settingsStore = SettingsStore(this.configDir.resolve("settings.json")),
         )
+        if (gl) scene = Scene(core.view)
         frame()
     }
 
@@ -97,12 +119,25 @@ class UiDriver(
         core.update(DT, keyboardEnabled = !io.wantCaptureKeyboard)
         io.setDeltaTime(DT.toFloat())
         UiTrace.beginFrame()
+        gl3?.newFrame() // the GL renderer creates/updates the font texture, as in the window
         ImGui.newFrame()
         core.ui.draw()
         ImGui.render()
         UiTrace.endFrame()
+        if (gl) renderFrame()
         frames++
     }
+
+    /** Draws this frame like the window: the world below the menu bar, then the UI on top. */
+    private fun renderFrame() {
+        offscreen!!.begin()
+        WorldView.render(core, scene!!, width, height, width.toFloat(), height.toFloat(), DT.toFloat())
+        GL11.glViewport(0, 0, width, height)
+        gl3!!.renderDrawData(ImGui.getDrawData())
+    }
+
+    /** The last rendered frame (GL mode only). */
+    fun image(): BufferedImage = checkNotNull(offscreen) { "image() needs UiDriver(gl = true)" }.read()
 
     fun seconds(s: Double) = frame(ceil(s / DT).toInt())
 
@@ -209,12 +244,16 @@ class UiDriver(
     // --- Output ----------------------------------------------------------------------------------
 
     /** Renders the last frame's UI (no 3D scene) to a PNG. */
+    /** Saves the last frame: the real render in GL mode, else the UI rasterized on the CPU (no 3D scene). */
     fun snapshot(file: Path) {
         Files.createDirectories(file.toAbsolutePath().parent)
-        renderer.render(ImGui.getDrawData(), width, height, file)
+        if (gl) Images.write(image(), file) else renderer!!.render(ImGui.getDrawData(), width, height, file)
     }
 
     override fun close() {
+        gl3?.shutdown()
+        scene?.dispose()
+        offscreen?.close()
         UiTrace.enabled = false
         ImPlot.destroyContext()
         ImGui.destroyContext()
@@ -234,3 +273,9 @@ class UiDriver(
  * (`fun x() = uiTest { ... }`) stay valid JUnit methods whatever the script's last expression is.
  */
 fun uiTest(script: (UiDriver) -> Unit) = UiDriver().use(script)
+
+/** Like [uiTest] with real headless rendering; skipped where no EGL/OpenGL is available. */
+fun glTest(width: Int = 960, height: Int = 540, script: (UiDriver) -> Unit) {
+    org.junit.jupiter.api.Assumptions.assumeTrue(HeadlessGl.available, "no headless OpenGL")
+    UiDriver(width, height, gl = true).use(script)
+}

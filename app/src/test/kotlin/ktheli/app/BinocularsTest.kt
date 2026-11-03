@@ -31,13 +31,15 @@ class BinocularsTest {
     @Test
     fun `the field of view frames the model at any distance`() {
         for (distance in listOf(10.0, 40.0, 150.0)) {
-            val fov = Binoculars.fov(distance, 0.36, 0.6, 60.0)
+            val fov = Binoculars.fov(distance, 0.36, 0.6, 60.0, 500.0, 160.0)
             assertEquals(0.36 / 0.6, kotlin.math.tan(Math.toRadians(fov) / 2) * distance, 1e-9) // model fills 60 %
         }
-        assertEquals(60.0, Binoculars.fov(0.5, 0.36, 0.6, 60.0)) // very close: never wider than the main view
-        val m = Binoculars.magnification(60.0, Math.toDegrees(2 * atan(0.6 / 40.0)))
-        assertEquals(38.5, m, 0.1)
-        assertEquals(1.0, Binoculars.magnification(50.0, 50.0), 1e-12)
+        val close = Binoculars.fov(1.5, 0.36, 0.6, 60.0, 500.0, 160.0) // close follow camera: model already large
+        assertEquals(1.0, Binoculars.magnification(60.0, 500.0, close, 160.0), 1e-9) // never shrinks the view
+        val insetFov = Math.toDegrees(2 * atan(0.6 / 40.0))
+        assertEquals(38.5, Binoculars.magnification(60.0, 500.0, insetFov, 500.0), 0.1) // same size: the FOV ratio
+        assertEquals(12.3, Binoculars.magnification(60.0, 500.0, insetFov, 160.0), 0.1) // a smaller inset shows less
+        assertEquals(1.0, Binoculars.magnification(50.0, 300.0, 50.0, 300.0), 1e-12)
     }
 
     @Test
