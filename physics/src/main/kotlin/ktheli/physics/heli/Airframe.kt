@@ -40,6 +40,10 @@ data class RotorParams(
  * @property flapDamping flap damping of the dampers, per blade, N·m·s/rad
  * @property tipLoss fraction of the radius that produces lift (Prandtl-style tip loss)
  * @property elements blade sections per blade
+ *
+ * Drivetrain losses (gears, belt or torque tube, tail gearbox, bearings), as torque on the main shaft:
+ * @property frictionTorque constant part, N·m; dominates when the rotor coasts down at low rpm
+ * @property viscousTorque speed-proportional part at [referenceSpeed], N·m
  */
 data class MainRotorParams(
     val rotor: RotorParams,
@@ -56,6 +60,8 @@ data class MainRotorParams(
     val flapDamping: Double = 0.002,
     val tipLoss: Double = 0.97,
     val elements: Int = 12,
+    val frictionTorque: Double = 0.015,
+    val viscousTorque: Double = 0.010, // with frictionTorque ~7 W at hover: a 7 % drivetrain loss
 )
 
 /**

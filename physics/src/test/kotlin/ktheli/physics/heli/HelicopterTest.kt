@@ -126,11 +126,26 @@ abstract class HelicopterTest(private val factory: () -> Helicopter) {
         f.report("forward flight")
         val rpm0 = f.rpm
         val pilot = f.hoverPilot(40.0, Controls(flightMode = 1, throttleHold = true), forwardSpeed = 9.0)
-        f.fly(6.0) { pilot(it).copy(collective = -0.75) } // hold curve: -2° pitch, as pilots do to keep headspeed
+        f.fly(6.0) { pilot(it).copy(collective = -0.875) } // hold curve: -3° pitch, as pilots do to keep headspeed
         f.report("autorotation")
         val descent = f.body.velocity.z
         assertTrue(f.rpm > 0.75 * rpm0, "rotor kept turning: ${f.rpm}")
         assertTrue(descent in 3.0..10.0, "steady descent: $descent m/s")
+    }
+
+    @Test
+    fun `throttle hold on the ground spins the rotor down within 20 seconds`() {
+        for (stick in listOf(-1.0, -0.5, 0.0)) { // hold curve: -4°, 0°, +4° pitch
+            val f = HeliFlight()
+            f.fly(10.0, Controls(flightMode = 1))
+            var t = 0.0
+            while (f.rpm >= 1.0 && t < 30.0) {
+                f.fly(0.5, Controls(flightMode = 1, throttleHold = true, collective = stick))
+                t += 0.5
+            }
+            println("spin-down with hold stick %+.1f: %.1f s".format(stick, t))
+            assertTrue(t in 8.0..20.0, "spin-down took $t s")
+        }
     }
 
     @Test

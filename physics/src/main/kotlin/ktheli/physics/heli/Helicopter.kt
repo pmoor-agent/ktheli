@@ -107,7 +107,7 @@ class Helicopter(
     private fun advanceRotorStates(f: Forces, before: RigidBodyState, dt: Double) {
         val mr = airframe.mainRotor
         val tailShaftTorque = if (rotorSpeed > 1.0) f.tail.power / rotorSpeed else 0.0
-        val friction = 0.002 * rotorSpeed / mr.referenceSpeed + (if (rotorSpeed > 0.0) 0.003 else 0.0) // bearings, gears
+        val friction = mr.viscousTorque * rotorSpeed / mr.referenceSpeed + (if (rotorSpeed > 0.0) mr.frictionTorque else 0.0)
         rotorSpeed = (rotorSpeed + (motorTorque - f.main.shaftTorque - tailShaftTorque - friction) / mr.inertia * dt).coerceAtLeast(0.0)
 
         val tailSpeed = rotorSpeed * airframe.tailRotor.gearRatio
