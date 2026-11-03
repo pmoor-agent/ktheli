@@ -54,29 +54,30 @@ class CameraRig {
     private var lastMode: CameraMode? = null
     private var lastHeli: Vec3? = null
 
-    fun update(heli: RigidBodyState, rotorRadius: Double, s: CameraSettings, dt: Double): CameraPose {
+    /** [pilotEye] is where the pilot stands at the current field (world NED). */
+    fun update(heli: RigidBodyState, rotorRadius: Double, s: CameraSettings, dt: Double, pilotEye: Vec3): CameraPose {
         val modeChanged = s.mode != lastMode
         lastMode = s.mode
         // The model jumping metres between two frames can only be a reset (or a new model): snap.
         val jumped = lastHeli?.let { (heli.position - it).length() > JUMP_DISTANCE } ?: true
         lastHeli = heli.position
         return when (s.mode) {
-            CameraMode.PILOT -> pilot(heli, rotorRadius, s)
+            CameraMode.PILOT -> pilot(heli, rotorRadius, s, pilotEye)
             CameraMode.FOLLOW -> follow(heli, s, dt.coerceIn(0.0, MAX_DT), snap = modeChanged || jumped)
         }
     }
 
-    private fun pilot(heli: RigidBodyState, rotorRadius: Double, s: CameraSettings): CameraPose {
-        position = PILOT_EYE
+    private fun pilot(heli: RigidBodyState, rotorRadius: Double, s: CameraSettings, eye: Vec3): CameraPose {
+        position = eye
         velocity = Vec3.ZERO
         val fov = if (s.autoZoom) {
             val halfWidth = VISIBLE_HALF_WIDTH * rotorRadius / REFERENCE_RADIUS
-            val distance = maxOf((heli.position - PILOT_EYE).length(), 0.5)
+            val distance = maxOf((heli.position - eye).length(), 0.5)
             Math.toDegrees(2.0 * atan(halfWidth / distance)).coerceIn(12.0, 65.0)
         } else {
             s.pilotFov
         }
-        return CameraPose(PILOT_EYE, heli.position, fov)
+        return CameraPose(eye, heli.position, fov)
     }
 
     private fun follow(heli: RigidBodyState, s: CameraSettings, dt: Double, snap: Boolean): CameraPose {
@@ -120,8 +121,6 @@ class CameraRig {
     }
 
     companion object {
-        /** Eye height of a pilot standing at the field origin, NED. */
-        val PILOT_EYE = Vec3(0.0, 0.0, -1.7)
         const val VISIBLE_HALF_WIDTH = 3.5 // m of scene visible either side of a 450 when auto-zoomed
         const val REFERENCE_RADIUS = 0.36 // ... scaled for other rotor sizes
         const val MIN_HEIGHT = 0.3 // m: the follow camera stays above the grass

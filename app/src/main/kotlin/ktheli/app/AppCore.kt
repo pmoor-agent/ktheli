@@ -19,13 +19,18 @@ class AppCore(
     private val settingsStore: SettingsStore = SettingsStore(),
 ) {
     private var settings = settingsStore.load()
-    val runner = SimRunner(settings.model, settings.environment.toSettings())
+    val runner = SimRunner(settings.model, settings.environment.toSettings(), settings.flyingField)
     val input = InputController(store, joysticks, keyboard)
     val telemetry = Telemetry()
     val view = ViewSettings(settings.camera)
     var controls: Controls = Controls.NEUTRAL
         private set
-    val ui = Ui(UiContext(runner, input, view, telemetry, { controls }, host, ::changeEnvironment, ::selectAircraft, ::changeCamera))
+    val ui = Ui(UiContext(runner, input, view, telemetry, { controls }, host, ::changeEnvironment, ::selectAircraft, ::changeCamera, ::selectField))
+
+    fun selectField(field: FlyingField) {
+        runner.select(field)
+        save(settings.copy(field = field.id))
+    }
 
     fun changeCamera(camera: CameraSettings) {
         view.camera = camera

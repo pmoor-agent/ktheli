@@ -4,7 +4,6 @@ import ktheli.physics.body.RigidBodyState
 import ktheli.physics.env.Environment
 import ktheli.physics.env.EnvironmentSettings
 import ktheli.physics.math.Quat
-import ktheli.physics.math.Vec3
 import ktheli.physics.sim.Controls
 import ktheli.physics.sim.Simulation
 
@@ -15,8 +14,13 @@ import ktheli.physics.sim.Simulation
 class SimRunner(
     model: HelicopterModel = HelicopterModels.DEFAULT,
     environment: EnvironmentSettings = EnvironmentSettings.CALM,
+    field: FlyingField = FlyingFields.DEFAULT,
 ) {
     var model = model
+        private set
+
+    /** Where we fly; models are parked at its start position on reset. */
+    var field = field
         private set
 
     /** Current environment; changing it applies immediately, as a simulation input. */
@@ -37,6 +41,11 @@ class SimRunner(
 
     fun select(next: HelicopterModel) {
         model = next
+        reset()
+    }
+
+    fun select(next: FlyingField) {
+        field = next
         reset()
     }
 
@@ -78,11 +87,10 @@ class SimRunner(
 
     private fun newSim(): Simulation {
         val seed = ++flights
-        return Simulation(model.create(START, seed), Environment(environment, seed = seed))
+        return Simulation(model.create(field.start, seed), Environment(environment, seed = seed))
     }
 
     private companion object {
         const val MAX_FRAME_SECONDS = 0.1 // drop time rather than spiral after a hitch
-        val START = Vec3(6.0, 0.0, 0.0) // 6 m in front of the pilot
     }
 }

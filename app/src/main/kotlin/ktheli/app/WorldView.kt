@@ -24,6 +24,7 @@ object WorldView {
         val scale = backHeight / logicalHeight.coerceAtLeast(1f)
         val viewHeight = (backHeight - (menu * scale).toInt()).coerceAtLeast(1)
         scene.use(core.runner.model)
+        scene.useField(core.runner.field)
         val rotors = (core.runner.sim.aircraft as? Helicopter)?.let {
             RotorPose(it.rotorRpm, it.tailRotorRpm, it.mainRotor.tiltBack, it.mainRotor.tiltRight, it.mainRotor.bladeAzimuth)
         } ?: RotorPose(rpm = TOY_ROTOR_RPM, tailRpm = TOY_ROTOR_RPM * 4.5)

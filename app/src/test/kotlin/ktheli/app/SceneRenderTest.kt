@@ -22,8 +22,16 @@ class SceneRenderTest {
     @BeforeEach
     fun needGl() = assumeTrue(HeadlessGl.available, "no headless OpenGL")
 
-    /** Renders [Scene] with explicit poses, no simulation. */
-    private class Probe(camera: CameraSettings, val width: Int = 640, val height: Int = 360) : AutoCloseable {
+    /**
+     * Renders [Scene] with explicit poses, no simulation. Defaults to the open field: plain grass makes a clean
+     * background for telling the model's pixels apart.
+     */
+    private class Probe(
+        camera: CameraSettings,
+        val width: Int = 640,
+        val height: Int = 360,
+        private val field: FlyingField = FlyingFields.OPEN,
+    ) : AutoCloseable {
         val view = ViewSettings(camera)
         private val scene = Scene(view)
         private val offscreen = Offscreen(width, height)
@@ -35,6 +43,7 @@ class SceneRenderTest {
             model: HelicopterModel = HelicopterModels.TREX_450,
         ): BufferedImage {
             scene.use(model)
+            scene.useField(field)
             offscreen.begin()
             scene.render(state, rotors, Vec3.ZERO, Scene.Viewport(0, 0, width, height), binoculars, 1f / 60f)
             return offscreen.read()
@@ -46,7 +55,7 @@ class SceneRenderTest {
         }
     }
 
-    private val parked = HelicopterModels.TREX_450.spec!!.parkedAt(Vec3(6.0, 0.0, 0.0))
+    private val parked = HelicopterModels.TREX_450.spec!!.parkedAt(FlyingFields.OPEN.start)
     private fun spinning(tiltRight: Double = 0.0) = RotorPose(rpm = 2700.0, tailRpm = 12150.0, tiltRight = tiltRight, bladeAzimuth = 0.0)
 
     @Test
@@ -119,6 +128,7 @@ class SceneRenderTest {
 
     @Test
     fun `the follow camera keeps the model framed through a flight`() = glTest(640, 360) { ui ->
+        ui.core.selectField(FlyingFields.OPEN) // plain grass: only the model counts as an object
         ui.joystick.connected = false
         ui.press(Keys.F3) // HUD off: only the scene counts
         ui.press(Keys.V) // follow camera
@@ -144,6 +154,28 @@ class SceneRenderTest {
             assertTrue(s.cx in 0.3 * ui.width..0.7 * ui.width && s.cy in 0.25 * ui.height..0.75 * ui.height, "centred: (${s.cx}, ${s.cy})")
             assertTrue(s.box!!.height in (0.08 * ui.height).toInt()..(0.7 * ui.height).toInt(), "close up but whole: ${s.box}")
         }
+    }
+
+    @Test
+    fun `the home field shows the helipad with its H around the parked model`() = Probe(
+        CameraSettings(mode = CameraMode.FOLLOW, followDistance = 2.5, followHeight = 2.5), field = FlyingFields.HOME,
+    ).use { p ->
+        val image = p.render(parked, RotorPose(0.0, 0.0, bladeAzimuth = 0.0))
+        Images.write(image, out.resolve("helipad.png"))
+        var asphalt = 0
+        var white = 0
+        for (y in 0 until p.height) for (x in 0 until p.width) {
+            val c = image.getRGB(x, y)
+            val r = c shr 16 and 255
+            val g = c shr 8 and 255
+            val b = c and 255
+            val grey = maxOf(r, g, b) - minOf(r, g, b) < 18
+            if (grey && r in 35..95) asphalt++
+            if (grey && r > 210) white++
+        }
+        println("helipad: %d asphalt pixels, %d white (ring and H)".format(asphalt, white))
+        assertTrue(asphalt > 0.04 * p.width * p.height, "asphalt pad around the model")
+        assertTrue(white > 0.01 * p.width * p.height, "white ring and H")
     }
 
     @Test
