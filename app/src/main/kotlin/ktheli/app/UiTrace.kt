@@ -70,6 +70,9 @@ object UiTrace {
         if (enabled && disabled.isNotEmpty()) disabled.removeAt(disabled.lastIndex)
     }
 
+    /** A path to scroll into view (scripted tests): its enclosing scroll region scrolls when it is next drawn. */
+    var reveal: String? = null
+
     /** Records the item ImGui submitted last under [name]. */
     fun item(name: String) {
         if (!enabled) return
@@ -77,7 +80,9 @@ object UiTrace {
         val min = ImGui.getItemRectMin()
         val max = ImGui.getItemRectMax()
         if (path in building) duplicates += path
-        building[path] = Item(path, min.x, min.y, max.x, max.y, disabled.none { it }, ImGui.isItemVisible())
+        val visible = ImGui.isItemVisible()
+        building[path] = Item(path, min.x, min.y, max.x, max.y, disabled.none { it }, visible)
+        if (!visible && path == reveal) ImGui.setScrollHereY(0.5f)
     }
 
     fun text(text: String) {

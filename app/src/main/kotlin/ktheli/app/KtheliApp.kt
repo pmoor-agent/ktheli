@@ -15,6 +15,7 @@ class KtheliApp : ApplicationAdapter() {
     private lateinit var scene: Scene
     private lateinit var imgui: ImGuiLayer
     private lateinit var core: AppCore
+    private lateinit var gpuTimer: GpuTimer
     private var lastNanos = 0L
     private var screenshotRequested = false
 
@@ -34,6 +35,7 @@ class KtheliApp : ApplicationAdapter() {
     override fun create() {
         Gdx.app.log("ktheli", "GL: " + Gdx.gl.glGetString(GL20.GL_RENDERER) + " / " + Gdx.gl.glGetString(GL20.GL_VERSION))
         core = AppCore(Joysticks, GdxKeyboard, host)
+        gpuTimer = GpuTimer()
         scene = Scene(core.view)
         val configDir = ProfileStore.configDir().also { Files.createDirectories(it) }
         imgui = ImGuiLayer(configDir.resolve("imgui.ini"))
@@ -65,17 +67,21 @@ class KtheliApp : ApplicationAdapter() {
 
         // Build the UI first so the menu bar height is known, then draw the 3D view below it.
         imgui.beginFrame()
-        core.ui.draw()
+        core.drawUi()
 
         val bw = Gdx.graphics.backBufferWidth
         val bh = Gdx.graphics.backBufferHeight
+        gpuTimer.begin()
         Gdx.gl.glViewport(0, 0, bw, bh)
         Gdx.gl.glClearColor(0.55f, 0.72f, 0.92f, 1f)
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT or GL20.GL_DEPTH_BUFFER_BIT)
         WorldView.render(core, scene, bw, bh, Gdx.graphics.width.toFloat(), Gdx.graphics.height.toFloat(), frameSeconds.toFloat())
         Gdx.gl.glViewport(0, 0, bw, bh)
 
-        imgui.endFrame()
+        core.profiler.measure(FrameProfiler.Section.UI_RENDER) { imgui.endFrame() }
+        gpuTimer.end()
+        core.profiler.gpu(gpuTimer.poll())
+        core.profiler.endFrame(frameSeconds)
 
         elapsed += frameSeconds
         if (screenshotRequested) {
@@ -103,6 +109,7 @@ class KtheliApp : ApplicationAdapter() {
     }
 
     override fun dispose() {
+        gpuTimer.close()
         imgui.dispose()
         scene.dispose()
     }

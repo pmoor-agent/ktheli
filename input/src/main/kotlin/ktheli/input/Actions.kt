@@ -26,6 +26,7 @@ enum class Action(val label: String, val group: Group, val hold: Boolean = false
     CONTROLS_DIALOG("Controls dialog", Group.SIM),
     ENVIRONMENT_DIALOG("Environment dialog", Group.SIM),
     TELEMETRY("Telemetry window", Group.SIM),
+    PERFORMANCE("Performance window", Group.SIM),
     HUD("HUD", Group.SIM),
     CAMERA_MODE("Camera view (cycle)", Group.SIM),
     CAMERA_DIALOG("Camera settings", Group.SIM),

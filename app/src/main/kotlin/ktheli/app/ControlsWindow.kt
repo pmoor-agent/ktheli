@@ -162,7 +162,10 @@ class ControlsWindow(private val input: InputController, private val controls: (
     private fun bindingsTab() {
         val hasDevice = input.active != null
         val tableFlags = ImGuiTableFlags.Borders or ImGuiTableFlags.RowBg or ImGuiTableFlags.SizingStretchProp
-        if (ImGui.beginTable("bindings", 3, tableFlags)) {
+        // The table scrolls; the reset button and hints below it stay in view.
+        val footer = ImGui.getFrameHeightWithSpacing() + 3 * ImGui.getTextLineHeightWithSpacing()
+        if (ImGui.beginTable("bindings", 3, tableFlags or ImGuiTableFlags.ScrollY, 0f, -footer)) {
+            ImGui.tableSetupScrollFreeze(0, 1)
             ImGui.tableSetupColumn("Action", 0, 1.4f)
             ImGui.tableSetupColumn("Keyboard")
             ImGui.tableSetupColumn("Controller")

@@ -55,15 +55,18 @@ class SimRunner(
         accumulatorTicks = 0.0
     }
 
-    /** Advances by [realSeconds] of wall time using [controls] for every tick in this frame. */
-    fun advance(realSeconds: Double, controls: Controls) {
-        if (paused) return
+    /** Advances by [realSeconds] of wall time using [controls] for every tick in this frame; returns the ticks run. */
+    fun advance(realSeconds: Double, controls: Controls): Int {
+        if (paused) return 0
         accumulatorTicks += realSeconds.coerceAtMost(MAX_FRAME_SECONDS) * sim.tickRateHz
+        var ticks = 0
         while (accumulatorTicks >= 1.0) {
             previous = sim.aircraft.body
             sim.step(controls)
             accumulatorTicks -= 1.0
+            ticks++
         }
+        return ticks
     }
 
     /** State interpolated between the last two ticks, for smooth rendering at any frame rate. */

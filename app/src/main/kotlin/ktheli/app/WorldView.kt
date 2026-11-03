@@ -19,7 +19,7 @@ object WorldView {
         logicalWidth: Float,
         logicalHeight: Float,
         frameSeconds: Float,
-    ) {
+    ) = core.profiler.measure(FrameProfiler.Section.WORLD) {
         val menu = core.ui.menuBarHeight
         val scale = backHeight / logicalHeight.coerceAtLeast(1f)
         val viewHeight = (backHeight - (menu * scale).toInt()).coerceAtLeast(1)
