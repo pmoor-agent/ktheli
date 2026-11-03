@@ -50,8 +50,11 @@ main rotor (thrust, flapping, hub moments) + tail rotor + fuselage + fin + skids
   after the rotor. Every part (rotor hub, tail rotor, fin, fuselage) computes its airspeed against the local wind.
   Environment settings are simulation inputs, like the controls.
 - **Airframe** parameters live in `Airframes.class450`; numbers in the range of a T-Rex 450 class machine.
-- Known limits: vertical descent through the vortex-ring/turbulent-wake region uses plain momentum theory
-  (needs the empirical inflow model planned with VRS); no dynamic stall, blade lag or elastic blades.
+- **Steep descent** (`Inflow`): between hover and the windmill brake state momentum theory has no valid
+  solution; there the induced velocity follows Leishman's empirical fit to flight data, blended back to momentum
+  theory with edgewise speed. In the vortex ring state the blade element rotor adds seeded, filtered unsteadiness
+  to the inflow and its gradients: the thrust loss, shudder and wobble of "settling with power".
+- Known limits: no dynamic stall, blade lag or elastic blades.
 
 ## Determinism contract (`physics`)
 
@@ -176,5 +179,5 @@ fun `rebinding a key`() = uiTest { ui ->
 3. ✅ Blade-element rotor (360° airfoil), per-blade flapping, dynamic and skewed inflow, ground effect
 4. ✅ FBL controller, swashplate mixing, TX curves/expo, flight modes, throttle hold (done with Phase 2);
    still open: dual rates, per-mode tuning UI
-5. ✅ Wind (shear, Dryden turbulence, gusts), air density; still open: vortex ring state
+5. ✅ Wind (shear, Dryden turbulence, gusts), air density, vortex ring state
 6. Sound, replays, telemetry plots, crash physics, multiple airframes

@@ -218,6 +218,8 @@ class Helicopter(
         Gauge("Disc", "tilt back", "deg") { DMath.toDegrees(mainRotor.tiltBack) },
         Gauge("Disc", "tilt right", "deg") { DMath.toDegrees(mainRotor.tiltRight) },
         Gauge("Disc", "coning", "deg") { DMath.toDegrees(mainRotor.coning) },
+        Gauge("Inflow", "induced velocity", "m/s") { mainRotor.inflow },
+        Gauge("Inflow", "vortex ring (0-1)", "") { (mainRotor as? BladeElementRotor)?.vortexRing ?: 0.0 },
     )
 
     override fun hashInto(hash: StateHash) {
@@ -239,7 +241,7 @@ class Helicopter(
         fun bladeElement450(initial: RigidBodyState = parkedAt(Vec3.ZERO), seed: Long = 1) = Helicopter(
             initial = initial,
             seed = seed,
-            mainRotor = BladeElementRotor(Airframes.class450.mainRotor),
+            mainRotor = BladeElementRotor(Airframes.class450.mainRotor, seed),
             controller = FlybarlessController(FlybarlessSettings(cyclicPhaseDeg = BLADE_ELEMENT_PHASE)),
         )
 
