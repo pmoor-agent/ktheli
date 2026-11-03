@@ -5,15 +5,15 @@ import ktheli.physics.math.Vec3
 
 /**
  * When a spinning rotor looks like blades and when like a blurred disc: sharp blades up to [sharpUntilRpm],
- * cross-fading into the blur disc until [blurredFromRpm]. On a slow display the fade starts earlier, because
- * sharp blades moving more than [maxSharpDegreesPerFrame] between frames just strobe (and likewise the disc
- * takes over fully by [maxPartialDegreesPerFrame]).
+ * cross-fading into the blur disc until [blurredFromRpm]. On a slow display the fade starts earlier: a
+ * two-bladed rotor looks the same after half a turn, so blades moving more than ~90° between frames alias
+ * ("wagon wheel"); [maxSharpDegreesPerFrame] and [maxPartialDegreesPerFrame] keep below that.
  */
 data class RotorBlur(
-    val sharpUntilRpm: Double = 200.0,
-    val blurredFromRpm: Double = 600.0,
-    val maxSharpDegreesPerFrame: Double = 40.0,
-    val maxPartialDegreesPerFrame: Double = 120.0,
+    val sharpUntilRpm: Double = 600.0,
+    val blurredFromRpm: Double = 1000.0,
+    val maxSharpDegreesPerFrame: Double = 85.0,
+    val maxPartialDegreesPerFrame: Double = 170.0,
     val bladeOpacityBlurred: Double = 0.1,
     val discOpacityBlurred: Double = 0.9,
     /** The blur disc's texture turns at this fraction of the rotor speed, just enough to read as motion. */
