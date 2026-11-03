@@ -9,6 +9,7 @@ import imgui.type.ImBoolean
 import ktheli.input.Action
 import ktheli.input.CalibrationSession
 import ktheli.input.Channel
+import ktheli.input.InputController
 import ktheli.physics.sim.Controls
 
 /** The "Controls" dialog: stick channels and calibration, key/button bindings, and a live device monitor. */
@@ -201,7 +202,7 @@ class ControlsWindow(
         ImGui.tableNextColumn()
         bindingCell(
             id = "key",
-            label = input.keyFor(action)?.label(),
+            label = input.keyLabel(action),
             capturing = (input.mode as? InputController.Mode.CapturingKey)?.action == action,
             prompt = "press a key...",
             enabled = true,

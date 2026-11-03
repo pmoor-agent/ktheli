@@ -9,7 +9,6 @@ import com.badlogic.gdx.graphics.PixmapIO
 import com.badlogic.gdx.utils.ScreenUtils
 import ktheli.app.sound.AudioOutput
 import ktheli.app.sound.SoundParams
-import ktheli.input.ProfileStore
 import java.nio.file.Files
 
 /** The windowed application: [AppCore] plus the GL scene and the ImGui renderer. */
@@ -43,8 +42,8 @@ class KtheliApp : ApplicationAdapter() {
         scene = Scene(core.session.view)
         audio = AudioOutput.open()
         if (audio == null) core.session.status.show("No sound output available")
-        val configDir = ProfileStore.configDir().also { Files.createDirectories(it) }
-        imgui = ImGuiLayer(configDir.resolve("imgui.ini"))
+        Files.createDirectories(ConfigPaths.dir)
+        imgui = ImGuiLayer(ConfigPaths.imguiIni)
         // Dev hook for screenshots: KTHELI_SHOW=controls[:sticks|buttons|monitor],telemetry
         System.getenv("KTHELI_SHOW")?.split(',')?.forEach {
             when (it.trim()) {

@@ -1,16 +1,7 @@
 package ktheli.app
 
 import com.badlogic.gdx.Gdx
-
-/** Source of joystick state, polled once per frame. */
-fun interface JoystickSource {
-    fun poll(): List<Joystick>
-}
-
-/** Which keys are currently held (toolkit key codes). */
-fun interface KeyboardState {
-    fun isPressed(keycode: Int): Boolean
-}
+import ktheli.input.KeyboardState
 
 /** Services the UI needs from whatever hosts it (the libGDX window, or a headless test driver). */
 interface AppHost {

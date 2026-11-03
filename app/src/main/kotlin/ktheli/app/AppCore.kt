@@ -1,7 +1,9 @@
 package ktheli.app
 
-import com.badlogic.gdx.Input.Keys
 import ktheli.input.Action
+import ktheli.input.JoystickSource
+import ktheli.input.KeyLayout
+import ktheli.input.KeyboardState
 import ktheli.input.ProfileStore
 
 /**
@@ -13,12 +15,13 @@ import ktheli.input.ProfileStore
  */
 class AppCore(
     joysticks: JoystickSource,
-    private val keyboard: KeyboardState,
+    keyboard: KeyboardState,
     host: AppHost,
-    store: ProfileStore = ProfileStore(),
+    store: ProfileStore = ProfileStore(ConfigPaths.input),
     settingsStore: SettingsStore = SettingsStore(),
+    keys: KeyLayout = GdxKeys,
 ) {
-    val session = AppSession(joysticks, keyboard, host, store, settingsStore)
+    val session = AppSession(joysticks, keyboard, keys, host, store, settingsStore)
 
     /** Frame timing for the Performance window; display only. */
     val profiler = FrameProfiler(1.0 / session.runner.sim.tickRateHz)
@@ -41,13 +44,6 @@ class AppCore(
 
     /** A key went down; modifiers are read from the keyboard state. */
     fun keyDown(keycode: Int) {
-        fun down(a: Int, b: Int) = keyboard.isPressed(a) || keyboard.isPressed(b)
-        val action = session.input.keyDown(
-            keycode,
-            ctrl = down(Keys.CONTROL_LEFT, Keys.CONTROL_RIGHT),
-            shift = down(Keys.SHIFT_LEFT, Keys.SHIFT_RIGHT),
-            alt = down(Keys.ALT_LEFT, Keys.ALT_RIGHT),
-        )
-        action?.let(::perform)
+        session.input.keyDown(keycode)?.let(::perform)
     }
 }

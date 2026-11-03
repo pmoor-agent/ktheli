@@ -4,6 +4,7 @@ import com.badlogic.gdx.Input.Keys
 import ktheli.app.harness.UiDriver
 import ktheli.app.harness.uiTest
 import ktheli.input.Action
+import ktheli.input.InputController
 import ktheli.input.KeyChord
 import kotlin.test.Test
 import kotlin.test.assertEquals

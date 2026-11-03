@@ -3,12 +3,12 @@ package ktheli.app
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import ktheli.app.sound.SoundSettings
-import ktheli.input.ProfileStore
 import ktheli.physics.env.AtmosphereSettings
 import ktheli.physics.env.EnvironmentSettings
 import ktheli.physics.env.WindSettings
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.Paths
 import java.nio.file.StandardCopyOption
 
 /** Simulator settings that persist between runs (`~/.config/ktheli/settings.json`). */
@@ -55,7 +55,20 @@ data class EnvironmentDto(
     }
 }
 
-class SettingsStore(private val path: Path = ProfileStore.configDir().resolve("settings.json")) {
+/** Where the simulator keeps its files: `$XDG_CONFIG_HOME/ktheli`, defaulting to `~/.config/ktheli`. */
+object ConfigPaths {
+    val dir: Path
+        get() {
+            val base = System.getenv("XDG_CONFIG_HOME")?.let { Paths.get(it) } ?: Paths.get(System.getProperty("user.home"), ".config")
+            return base.resolve("ktheli")
+        }
+
+    val input: Path get() = dir.resolve("input.json")
+    val settings: Path get() = dir.resolve("settings.json")
+    val imguiIni: Path get() = dir.resolve("imgui.ini")
+}
+
+class SettingsStore(private val path: Path = ConfigPaths.settings) {
     private val json = Json { prettyPrint = true; ignoreUnknownKeys = true; encodeDefaults = true }
 
     fun load(): AppSettings = runCatching {

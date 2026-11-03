@@ -25,6 +25,7 @@ class AppSessionTest {
         return AppSession(
             joysticks = { emptyList() },
             keyboard = { false },
+            keys = GdxKeys,
             host = host,
             store = ProfileStore(dir.resolve("input.json")),
             settingsStore = SettingsStore(dir.resolve("settings.json")),

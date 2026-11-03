@@ -1,27 +1,17 @@
-package ktheli.app
+package ktheli.input
 
-import com.badlogic.gdx.Input.Keys
-import ktheli.input.Action
-import ktheli.input.AxisDetector
-import ktheli.input.ButtonDetector
-import ktheli.input.CalibrationSession
-import ktheli.input.Channel
-import ktheli.input.ChannelBinding
-import ktheli.input.DeviceProfile
-import ktheli.input.DigitalFlight
-import ktheli.input.InputConfig
-import ktheli.input.KeyChord
-import ktheli.input.ProfileStore
 import ktheli.physics.sim.Controls
 
 /**
  * Owns device selection, the binding/calibration workflows, keyboard and button bindings, and digital
- * flight input. Produces one [Frame] per rendered frame; key events come in through [keyDown].
+ * flight input. Produces one [Frame] per rendered frame; key events come in through [keyDown]. Toolkit-neutral:
+ * devices come from a [JoystickSource] and [KeyboardState], and what key codes mean from a [KeyLayout].
  */
 class InputController(
     private val store: ProfileStore,
     private val joystickSource: JoystickSource,
     private val keyboard: KeyboardState,
+    val keys: KeyLayout,
     /** Where workflow results and errors go for the pilot to see; "" clears a stale message. */
     private val report: (String) -> Unit = {},
 ) {
@@ -68,7 +58,10 @@ class InputController(
     val activeProfile: DeviceProfile?
         get() = active?.let { config.devices[it.guid] }
 
-    fun keyFor(action: Action): KeyChord? = config.keyFor(action, DefaultKeys.map)
+    fun keyFor(action: Action): KeyChord? = config.keyFor(action, keys.defaults)
+
+    /** Name of the key bound to [action] (e.g. "Ctrl+Q"), or null if it has none. */
+    fun keyLabel(action: Action): String? = keyFor(action)?.let(keys::label)
 
     fun buttonFor(action: Action): Int? = activeProfile?.buttons?.get(action)
 
@@ -134,24 +127,31 @@ class InputController(
         return active?.buttons?.getOrNull(button) == true
     }
 
-    /** Handles a key press: completes a key capture, cancels workflows on Esc, or returns the bound action. */
-    fun keyDown(keycode: Int, ctrl: Boolean, shift: Boolean, alt: Boolean): Action? {
-        if (isModifierKey(keycode)) return null
+    /**
+     * Handles a key press (modifiers are read from the keyboard state): completes a key capture, cancels
+     * workflows on Esc, or returns the bound action.
+     */
+    fun keyDown(keycode: Int): Action? {
+        if (keys.isModifier(keycode)) return null
+        fun held(codes: Set<Int>) = codes.any(keyboard::isPressed)
+        val ctrl = held(keys.ctrl)
+        val shift = held(keys.shift)
+        val alt = held(keys.alt)
         when (val m = mode) {
             Mode.Fly -> {}
             is Mode.CapturingKey -> {
-                if (keycode == Keys.ESCAPE) {
+                if (keycode == keys.escape) {
                     cancel()
                 } else {
                     val chord = KeyChord(keycode, ctrl, shift, alt)
-                    save(config.withKey(m.action, chord, DefaultKeys.map))
-                    report("${m.action.label} -> ${chord.label()}")
+                    save(config.withKey(m.action, chord, keys.defaults))
+                    report("${m.action.label} -> ${keys.label(chord)}")
                     mode = Mode.Fly
                 }
                 return null
             }
             else -> {
-                if (keycode == Keys.ESCAPE) cancel()
+                if (keycode == keys.escape) cancel()
                 return null
             }
         }
@@ -256,5 +256,3 @@ class InputController(
         const val CENTER_SECONDS = 1.5
     }
 }
-
-val Channel.label: String get() = name.lowercase()

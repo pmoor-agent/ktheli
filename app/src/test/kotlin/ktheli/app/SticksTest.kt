@@ -3,6 +3,7 @@ package ktheli.app
 import com.badlogic.gdx.Input.Keys
 import ktheli.app.harness.uiTest
 import ktheli.input.Action
+import ktheli.input.InputController
 import ktheli.input.CalibrationSession
 import ktheli.input.Channel
 import kotlin.test.Test

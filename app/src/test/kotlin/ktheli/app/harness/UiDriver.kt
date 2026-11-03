@@ -6,7 +6,8 @@ import imgui.gl3.ImGuiImplGl3
 import ktheli.app.AppCore
 import ktheli.app.AppHost
 import ktheli.app.GpuTimer
-import ktheli.app.Joystick
+import ktheli.app.Joysticks
+import ktheli.input.Joystick
 import ktheli.app.Scene
 import ktheli.app.SettingsStore
 import ktheli.app.UiTrace
@@ -35,7 +36,7 @@ class ScriptedJoystick(
     val hats = IntArray(hatCount)
     var connected = true
 
-    fun snapshot() = Joystick(0, guid, name, axes.copyOf(), Joystick.withHatButtons(buttons, hats), hats.size)
+    fun snapshot() = Joystick(0, guid, name, axes.copyOf(), Joysticks.withHatButtons(buttons, hats), hats.size)
 }
 
 /**

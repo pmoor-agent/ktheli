@@ -11,6 +11,7 @@ import imgui.flag.ImGuiWindowFlags
 import imgui.type.ImBoolean
 import ktheli.input.Action
 import ktheli.input.CalibrationSession
+import ktheli.input.InputController
 import ktheli.physics.heli.Helicopter
 import ktheli.physics.sim.Crash
 
@@ -69,7 +70,7 @@ class Ui(
 
     private fun ImBoolean.toggle() = set(!get())
 
-    private fun shortcut(action: Action) = session.input.keyFor(action)?.label().orEmpty()
+    private fun shortcut(action: Action) = session.input.keyLabel(action).orEmpty()
 
     private fun actionItem(label: String, action: Action, selected: Boolean = false) {
         if (Gui.menuItem(label, shortcut(action), selected)) perform(action)
@@ -186,7 +187,7 @@ class Ui(
                 val delta = if (target > 0.0) "  (%+.0f)".format(heli.rotorRpm - target) else ""
                 Gui.text("%s   headspeed %.0f rpm%s".format(mode.name, heli.rotorRpm, delta))
                 if (session.input.throttleHold) {
-                    val key = session.input.keyFor(Action.THROTTLE_HOLD)?.label()?.let { " - $it to release" }.orEmpty()
+                    val key = session.input.keyLabel(Action.THROTTLE_HOLD)?.let { " - $it to release" }.orEmpty()
                     Gui.textColored(1f, 0.5f, 0.2f, 1f, "THROTTLE HOLD$key")
                 }
             }

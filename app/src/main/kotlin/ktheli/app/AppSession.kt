@@ -5,6 +5,10 @@ import ktheli.app.sound.Listener
 import ktheli.app.sound.SoundParams
 import ktheli.app.sound.SoundSettings
 import ktheli.input.Action
+import ktheli.input.InputController
+import ktheli.input.JoystickSource
+import ktheli.input.KeyLayout
+import ktheli.input.KeyboardState
 import ktheli.input.ProfileStore
 import ktheli.physics.env.EnvironmentSettings
 import ktheli.physics.heli.Helicopter
@@ -32,14 +36,15 @@ class StatusLine {
 class AppSession(
     joysticks: JoystickSource,
     keyboard: KeyboardState,
+    keys: KeyLayout,
     private val host: AppHost,
-    store: ProfileStore = ProfileStore(),
+    store: ProfileStore = ProfileStore(ConfigPaths.input),
     private val settingsStore: SettingsStore = SettingsStore(),
 ) {
     val status = StatusLine()
     private var settings = settingsStore.load()
     val runner = SimRunner(settings.model, settings.environment.toSettings(), settings.flyingField)
-    val input = InputController(store, joysticks, keyboard, status::show)
+    val input = InputController(store, joysticks, keyboard, keys, status::show)
     val telemetry = Telemetry()
     val view = ViewSettings(settings.camera)
 
@@ -86,7 +91,7 @@ class AppSession(
             Action.PAUSE -> if (runner.crash == null) {
                 runner.paused = !runner.paused
             } else {
-                status.show("Crashed: ${input.keyFor(Action.RESET)?.label() ?: "reset"} to start again")
+                status.show("Crashed: ${input.keyLabel(Action.RESET) ?: "reset"} to start again")
             }
             Action.RESET -> reset()
             Action.FLIGHT_MODE -> input.cycleFlightMode()

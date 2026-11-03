@@ -3,6 +3,7 @@ package ktheli.app
 import com.badlogic.gdx.Input.Keys
 import ktheli.app.harness.uiTest
 import ktheli.input.Action
+import ktheli.input.Joystick
 import org.lwjgl.glfw.GLFW.GLFW_HAT_DOWN
 import org.lwjgl.glfw.GLFW.GLFW_HAT_LEFT
 import org.lwjgl.glfw.GLFW.GLFW_HAT_RIGHT
@@ -16,14 +17,14 @@ import kotlin.test.assertTrue
 class DpadTest {
     @Test
     fun `hats become four virtual buttons each, diagonals press two`() {
-        val buttons = Joystick.withHatButtons(booleanArrayOf(true), intArrayOf(GLFW_HAT_UP or GLFW_HAT_RIGHT, GLFW_HAT_LEFT))
+        val buttons = Joysticks.withHatButtons(booleanArrayOf(true), intArrayOf(GLFW_HAT_UP or GLFW_HAT_RIGHT, GLFW_HAT_LEFT))
         assertContentEquals(
             booleanArrayOf(true, /* hat 0 */ true, true, false, false, /* hat 1 */ false, false, false, true),
             buttons,
         )
-        val one = Joystick(0, "g", "pad", FloatArray(0), Joystick.withHatButtons(BooleanArray(2), intArrayOf(GLFW_HAT_DOWN)), 1)
+        val one = Joystick(0, "g", "pad", FloatArray(0), Joysticks.withHatButtons(BooleanArray(2), intArrayOf(GLFW_HAT_DOWN)), 1)
         assertEquals(listOf("button 0", "button 1", "D-pad up", "D-pad right", "D-pad down", "D-pad left"), (0..5).map(one::buttonLabel))
-        val two = Joystick(0, "g", "pad", FloatArray(0), Joystick.withHatButtons(BooleanArray(0), IntArray(2)), 2)
+        val two = Joystick(0, "g", "pad", FloatArray(0), Joysticks.withHatButtons(BooleanArray(0), IntArray(2)), 2)
         assertEquals("D-pad 2 left", two.buttonLabel(7))
     }
 
