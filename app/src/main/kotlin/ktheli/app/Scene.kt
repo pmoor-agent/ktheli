@@ -1,5 +1,6 @@
 package ktheli.app
 
+import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.GL20
 import com.badlogic.gdx.graphics.PerspectiveCamera
@@ -103,12 +104,15 @@ class Scene : Disposable {
         IntAttribute.createCullFace(GL20.GL_NONE),
     )
 
-    fun resize(width: Int, height: Int) {
+    /** When off, the camera keeps a fixed field of view instead of zooming with distance. */
+    var autoZoom = true
+
+    /** Renders into the given back-buffer pixel rectangle. */
+    fun render(state: RigidBodyState, x: Int, y: Int, width: Int, height: Int) {
+        Gdx.gl.glViewport(x, y, width, height)
         camera.viewportWidth = width.toFloat()
         camera.viewportHeight = height.toFloat()
-    }
 
-    fun render(state: RigidBodyState) {
         setHeliTransform(heli.transform, state)
         val p = state.position.toGdx()
 
@@ -118,7 +122,11 @@ class Scene : Disposable {
 
         // Pilot's-eye camera: fixed position, tracks the heli, zooms so it keeps a usable apparent size.
         val distance = p.dst(camera.position)
-        camera.fieldOfView = Math.toDegrees(2.0 * atan(VISIBLE_HALF_WIDTH / max(distance, 0.5f))).toFloat().coerceIn(12f, 65f)
+        camera.fieldOfView = if (autoZoom) {
+            Math.toDegrees(2.0 * atan(VISIBLE_HALF_WIDTH / max(distance, 0.5f))).toFloat().coerceIn(12f, 65f)
+        } else {
+            FIXED_FOV
+        }
         camera.up.set(Vector3.Y)
         camera.lookAt(p)
         camera.update()
@@ -152,5 +160,6 @@ class Scene : Disposable {
     private companion object {
         val PILOT_EYE = Vector3(0f, 1.7f, 0f)
         const val VISIBLE_HALF_WIDTH = 3.5f // m of scene visible either side of the heli when zoomed
+        const val FIXED_FOV = 50f
     }
 }

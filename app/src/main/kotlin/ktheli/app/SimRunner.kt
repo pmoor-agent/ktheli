@@ -17,6 +17,9 @@ class SimRunner {
     private var previous = sim.aircraft.body
     private var accumulatorTicks = 0.0
 
+    /** While paused, wall time is discarded; the simulation simply doesn't tick. */
+    var paused = false
+
     fun reset() {
         sim = newSim()
         previous = sim.aircraft.body
@@ -25,6 +28,7 @@ class SimRunner {
 
     /** Advances by [realSeconds] of wall time using [controls] for every tick in this frame. */
     fun advance(realSeconds: Double, controls: Controls) {
+        if (paused) return
         accumulatorTicks += realSeconds.coerceAtMost(MAX_FRAME_SECONDS) * sim.tickRateHz
         while (accumulatorTicks >= 1.0) {
             previous = sim.aircraft.body
