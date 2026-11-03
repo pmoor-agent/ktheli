@@ -5,28 +5,42 @@ import ktheli.physics.sim.Controls
 
 /**
  * Everything that can be bound to a key or a controller button. [hold] actions act while pressed;
- * the others fire once per press. [flight] actions drive channels that have no axis assigned.
+ * the others fire once per press.
  */
-enum class Action(val label: String, val hold: Boolean = false, val flight: Boolean = false) {
-    COLLECTIVE_UP("Collective up", hold = true, flight = true),
-    COLLECTIVE_DOWN("Collective down", hold = true, flight = true),
-    COLLECTIVE_ZERO("Collective to center", flight = true),
-    ROLL_LEFT("Roll left", hold = true, flight = true),
-    ROLL_RIGHT("Roll right", hold = true, flight = true),
-    PITCH_FORWARD("Pitch forward", hold = true, flight = true),
-    PITCH_BACK("Pitch back", hold = true, flight = true),
-    YAW_LEFT("Yaw left", hold = true, flight = true),
-    YAW_RIGHT("Yaw right", hold = true, flight = true),
+enum class Action(val label: String, val group: Group, val hold: Boolean = false) {
+    COLLECTIVE_UP("Collective up", Group.FLIGHT, hold = true),
+    COLLECTIVE_DOWN("Collective down", Group.FLIGHT, hold = true),
+    COLLECTIVE_ZERO("Collective to center", Group.FLIGHT),
+    ROLL_LEFT("Roll left", Group.FLIGHT, hold = true),
+    ROLL_RIGHT("Roll right", Group.FLIGHT, hold = true),
+    PITCH_FORWARD("Pitch forward", Group.FLIGHT, hold = true),
+    PITCH_BACK("Pitch back", Group.FLIGHT, hold = true),
+    YAW_LEFT("Yaw left", Group.FLIGHT, hold = true),
+    YAW_RIGHT("Yaw right", Group.FLIGHT, hold = true),
 
-    PAUSE("Pause / resume"),
-    RESET("Reset"),
-    CONTROLS_DIALOG("Controls dialog"),
-    TELEMETRY("Telemetry window"),
-    HUD("HUD"),
-    AUTO_ZOOM("Camera auto-zoom"),
-    SCREENSHOT("Screenshot"),
-    NEXT_DEVICE("Next joystick"),
-    QUIT("Quit"),
+    FLIGHT_MODE("Flight mode (cycle)", Group.SWITCH),
+    THROTTLE_HOLD("Throttle hold (toggle)", Group.SWITCH),
+
+    PAUSE("Pause / resume", Group.SIM),
+    RESET("Reset", Group.SIM),
+    CONTROLS_DIALOG("Controls dialog", Group.SIM),
+    TELEMETRY("Telemetry window", Group.SIM),
+    HUD("HUD", Group.SIM),
+    AUTO_ZOOM("Camera auto-zoom", Group.SIM),
+    SCREENSHOT("Screenshot", Group.SIM),
+    NEXT_DEVICE("Next joystick", Group.SIM),
+    QUIT("Quit", Group.SIM),
+    ;
+
+    /**
+     * [FLIGHT]: digital stick inputs, used for channels without an axis. [SWITCH]: transmitter switches,
+     * part of the simulation input. [SIM]: the simulator application itself.
+     */
+    enum class Group(val title: String) {
+        FLIGHT("Flight (for channels without an axis)"),
+        SWITCH("Transmitter switches"),
+        SIM("Simulator"),
+    }
 }
 
 /** A key plus modifiers. [key] is a toolkit key code (libGDX `Input.Keys` in the app). */

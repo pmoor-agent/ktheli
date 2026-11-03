@@ -15,6 +15,31 @@ An RC helicopter simulator in Kotlin, focused on realistic rotor physics rather 
 | `input`   | Axis calibration, channel mapping, device profiles (JSON). No device access. | `physics` |
 | `app`     | libGDX rendering, GLFW joystick polling, HUD, wall-clock → tick bridge. | both |
 
+## Helicopter model (`physics/.../heli`)
+
+```
+Controls → Transmitter (flight modes, pitch/throttle curves, hold, expo) → ReceiverInputs ─┐
+Imu (gyro, accelerometer, rpm; seeded noise) → SensorReadings ───────────────────────────┴→ FlightController
+FlightController (FBL rate loops + TailGyro) → ServoCommands → Servos (frame rate, speed) → CCPM swashplate / tail pitch
+ESC governor → motor ─(one-way bearing)→ rotor speed ← main + tail rotor torque
+main rotor (thrust, flapping, hub moments) + tail rotor + fuselage + fin + skids → rigid body
+```
+
+- **Rotors** (`RotorDisc`): blade-element thrust with uniform inflow from Glauert's momentum relation
+  (Heffley & Mnich, NASA CR-177476), dynamic inflow lag, profile power, Cheeseman–Bennett ground effect.
+  Shared by main and tail rotor; translational lift and windmilling fall out of it.
+- **Disc** (`Helicopter`): first-order tip-path-plane flapping (time constant 16/γΩ, lags body rates, blows
+  back with airspeed; after Gavrilets et al.), hub moments from hub stiffness and thrust offset.
+- **Drivetrain**: battery sag, brushless motor (Kv, R, I0), one-way bearing, ESC governor with soft start
+  and bailout. Headspeed sags on hard punches; the tail weakens with it.
+- **Flight controller**: `FlightController` and `TailGyro` interfaces see only what a real unit could
+  (`SensorReadings`: rates, specific force, rpm). `FlybarlessController` runs rate loops with feed-forward
+  and a cyclic ring on a 120° CCPM swashplate; `HeadingHoldGyro` (AVCS-style, gain sign selects heading
+  hold vs. rate mode, collective precomp) and `RateGyro` implement `TailGyro`.
+- **Airframe** parameters live in `Airframes.class450`; numbers in the range of a T-Rex 450 class machine.
+- Known limits: vertical descent through the vortex-ring/turbulent-wake region uses plain momentum theory
+  (needs the empirical inflow model planned with VRS); no blade-element cyclic or cross-coupling yet.
+
 ## Determinism contract (`physics`)
 
 Given the same initial state, seed, and per-tick `Controls`, the simulation produces bit-identical state
@@ -35,6 +60,19 @@ pins a golden state hash. When you change the physics intentionally, update `GOL
 World frame NED (x north, y east, z down), body frame FRD (x forward, y right, z down), SI units.
 Attitude quaternions rotate body → world. The renderer converts to libGDX's Y-up only at draw time
 (`Vec3.toGdx()`). See `physics/.../Frames.kt`.
+
+## Flying
+
+The default aircraft is a 450-size electric helicopter with a flybarless controller and a heading-hold
+tail gyro. Like a real one it starts **armed safe, with throttle hold on**:
+
+1. Press `H` to release throttle hold.
+2. Press `F` to go from *Normal* (gentle pitch curve, spool-up) to *Idle up 1* (symmetric ±11° 3D pitch,
+   ~2700 rpm) or *Idle up 2* (±12°, ~3060 rpm).
+3. Wait for the governor to spool up (about 6 s; watch *headspeed* in the HUD), then raise collective.
+4. `H` again cuts the motor for autorotations (lower collective a bit to keep headspeed up).
+
+Sticks command rotation rates, as with any flybarless unit: centered sticks hold the current attitude.
 
 ## User interface
 
@@ -68,6 +106,8 @@ Window layout persists in `~/.config/ktheli/imgui.ini`; bindings and calibration
 | `W` / `S` | Collective up / down (`K` returns it to center) |
 | arrows | Cyclic |
 | `A` / `D` | Yaw |
+| `H` | Throttle hold (toggle) |
+| `F` | Flight mode (cycle) |
 | `P` / `R` | Pause / reset |
 | `F1` / `F2` / `F3` | Controls dialog / telemetry / HUD |
 | `Z` | Camera auto-zoom |
@@ -114,9 +154,10 @@ fun `rebinding a key`() = uiTest { ui ->
 ## Roadmap
 
 0. ✅ Skeleton, input diagnostics/calibration, deterministic core
-1. ✅ Toy heli (thrust ∝ collective, ideal rate controller) — placeholder
-2. Momentum-theory rotor, rotor RPM dynamics, motor + governor, tail rotor, heading-hold gyro
+1. ✅ Toy heli (thrust ∝ collective, ideal rate controller) — still selectable under *Aircraft*
+2. ✅ Momentum-theory rotor, rotor RPM dynamics, motor + governor, tail rotor, FBL + heading-hold gyro
 3. Blade-element rotor (360° airfoil tables), flapping, dynamic inflow, ground effect
-4. FBL controller, swashplate mixing, TX curves/expo/rates, flight modes, throttle hold → autorotation
+4. ✅ FBL controller, swashplate mixing, TX curves/expo, flight modes, throttle hold (done with Phase 2);
+   still open: dual rates, per-mode tuning UI
 5. Wind, Dryden turbulence, gusts, vortex ring state, fuselage/fin aero
 6. Sound, replays, telemetry plots, crash physics, multiple airframes

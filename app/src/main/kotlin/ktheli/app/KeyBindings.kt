@@ -16,6 +16,8 @@ object DefaultKeys {
         Action.PITCH_BACK to KeyChord(Keys.DOWN),
         Action.YAW_LEFT to KeyChord(Keys.A),
         Action.YAW_RIGHT to KeyChord(Keys.D),
+        Action.FLIGHT_MODE to KeyChord(Keys.F),
+        Action.THROTTLE_HOLD to KeyChord(Keys.H),
         Action.PAUSE to KeyChord(Keys.P),
         Action.RESET to KeyChord(Keys.R),
         Action.CONTROLS_DIALOG to KeyChord(Keys.F1),

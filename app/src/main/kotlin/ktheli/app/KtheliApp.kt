@@ -8,6 +8,7 @@ import com.badlogic.gdx.graphics.Pixmap
 import com.badlogic.gdx.graphics.PixmapIO
 import com.badlogic.gdx.utils.ScreenUtils
 import ktheli.input.ProfileStore
+import ktheli.physics.heli.Helicopter
 import java.nio.file.Files
 
 /** The windowed application: [AppCore] plus the GL scene and the ImGui renderer. */
@@ -73,7 +74,8 @@ class KtheliApp : ApplicationAdapter() {
         Gdx.gl.glViewport(0, 0, bw, bh)
         Gdx.gl.glClearColor(0.55f, 0.72f, 0.92f, 1f)
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT or GL20.GL_DEPTH_BUFFER_BIT)
-        scene.render(core.runner.renderState(), 0, 0, bw, (bh - menuPixels).coerceAtLeast(1))
+        val spin = (core.runner.sim.aircraft as? Helicopter)?.let { (it.rotorRpm / 2500.0).toFloat() } ?: 1f
+        scene.render(core.runner.renderState(), spin, 0, 0, bw, (bh - menuPixels).coerceAtLeast(1))
         Gdx.gl.glViewport(0, 0, bw, bh)
 
         imgui.endFrame()

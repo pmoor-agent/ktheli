@@ -46,6 +46,14 @@ class InputController(
         private set
 
     val digital = DigitalFlight()
+
+    /** Transmitter switches; part of [Controls], so they're simulation inputs like the sticks. */
+    var flightMode = 0
+        private set
+    var flightModeCount = 3
+    /** Starts on, like arming a real heli: the motor can't start until the pilot releases it. */
+    var throttleHold = true
+        private set
     private val previousButtons = HashMap<String, BooleanArray>()
     private var keyboardEnabled = true
 
@@ -101,12 +109,12 @@ class InputController(
         }
 
         val digitalControls = digital.update(if (mode == Mode.Fly) ::isHeld else { _ -> false }, dt)
-        val controls = when {
+        val sticks = when {
             mode is Mode.Calibrating || mode is Mode.AssigningAxis -> Controls.NEUTRAL
             j != null -> config.devices.getValue(j.guid).toControls(j.axes, digitalControls)
             else -> digitalControls
         }
-        return Frame(controls, actions)
+        return Frame(sticks.copy(flightMode = flightMode, throttleHold = throttleHold), actions)
     }
 
     private fun risingEdges(j: Joystick): List<Int> {
@@ -212,6 +220,24 @@ class InputController(
         val profile = activeProfile ?: return
         val binding = profile.bindings[channel] ?: return
         saveProfile(profile.copy(bindings = profile.bindings + (channel to change(binding))))
+    }
+
+    fun cycleFlightMode() {
+        flightMode = (flightMode + 1) % flightModeCount
+    }
+
+    fun selectFlightMode(index: Int) {
+        flightMode = index.coerceIn(0, flightModeCount - 1)
+    }
+
+    fun toggleThrottleHold() {
+        throttleHold = !throttleHold
+    }
+
+    /** Back to the safe state after a reset: throttle hold on, first flight mode. */
+    fun resetSwitches() {
+        throttleHold = true
+        flightMode = 0
     }
 
     fun showStatus(message: String) {

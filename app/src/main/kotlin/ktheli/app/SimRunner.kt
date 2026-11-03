@@ -3,6 +3,8 @@ package ktheli.app
 import ktheli.physics.body.RigidBodyState
 import ktheli.physics.math.Quat
 import ktheli.physics.math.Vec3
+import ktheli.physics.heli.Helicopter
+import ktheli.physics.model.AircraftModel
 import ktheli.physics.model.ToyHeli
 import ktheli.physics.sim.Controls
 import ktheli.physics.sim.Simulation
@@ -12,6 +14,14 @@ import ktheli.physics.sim.Simulation
  * the simulation itself only ever sees (controls, tick).
  */
 class SimRunner {
+    /** The aircraft types the simulator offers; [create] parks a fresh one in front of the pilot. */
+    enum class AircraftType(val label: String, val create: () -> AircraftModel) {
+        HELI_450("450 class (FBL, 3S)", { Helicopter(initial = Helicopter.parkedAt(START)) }),
+        TOY("Toy heli (no rotor physics)", { ToyHeli(ToyHeli.parkedAt(START)) }),
+    }
+
+    var aircraftType = AircraftType.HELI_450
+        private set
     var sim = newSim()
         private set
     private var previous = sim.aircraft.body
@@ -19,6 +29,11 @@ class SimRunner {
 
     /** While paused, wall time is discarded; the simulation simply doesn't tick. */
     var paused = false
+
+    fun select(type: AircraftType) {
+        aircraftType = type
+        reset()
+    }
 
     fun reset() {
         sim = newSim()
@@ -56,8 +71,10 @@ class SimRunner {
         return (a * (1 - t) + bb * t).normalized()
     }
 
+    private fun newSim() = Simulation(aircraftType.create())
+
     private companion object {
         const val MAX_FRAME_SECONDS = 0.1 // drop time rather than spiral after a hitch
-        fun newSim() = Simulation(ToyHeli(ToyHeli.parkedAt(Vec3(6.0, 0.0, 0.0))))
+        val START = Vec3(6.0, 0.0, 0.0) // 6 m in front of the pilot
     }
 }

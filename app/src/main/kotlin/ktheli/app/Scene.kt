@@ -98,6 +98,14 @@ class Scene(private val view: ViewSettings) : Disposable {
         return mb.end()
     }
 
+    private fun setRotorOpacity(alpha: Float) {
+        for (id in listOf("rotor", "tailRotor")) {
+            heli.getNode(id)?.parts?.forEach { part ->
+                (part.material.get(BlendingAttribute.Type) as? BlendingAttribute)?.opacity = alpha
+            }
+        }
+    }
+
     private fun translucent(c: Color, alpha: Float) = Material(
         ColorAttribute.createDiffuse(c),
         BlendingAttribute(alpha),
@@ -105,7 +113,9 @@ class Scene(private val view: ViewSettings) : Disposable {
     )
 
     /** Renders into the given back-buffer pixel rectangle. */
-    fun render(state: RigidBodyState, x: Int, y: Int, width: Int, height: Int) {
+    /** [rotorSpin] 0..1 fades the rotor discs in as the rotor spins up. */
+    fun render(state: RigidBodyState, rotorSpin: Float, x: Int, y: Int, width: Int, height: Int) {
+        setRotorOpacity(0.04f + 0.28f * rotorSpin.coerceIn(0f, 1f))
         Gdx.gl.glViewport(x, y, width, height)
         camera.viewportWidth = width.toFloat()
         camera.viewportHeight = height.toFloat()
