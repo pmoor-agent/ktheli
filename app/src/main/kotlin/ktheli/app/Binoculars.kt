@@ -21,7 +21,7 @@ enum class Corner(val label: String) {
 data class BinocularSettings(
     val enabled: Boolean = false,
     val size: Double = 0.32,
-    val framing: Double = 0.6,
+    val framing: Double = 0.75,
     val corner: Corner = Corner.BOTTOM_RIGHT,
 )
 
@@ -49,15 +49,20 @@ object Binoculars {
 
     /**
      * Vertical field of view (degrees) that makes a model with rotor radius [rotorRadius] at [distance] fill
-     * [framing] of the inset's height; never wider than the main camera's [mainFov].
+     * [framing] of the inset's height. Never so wide that the inset would show things *smaller* than the main
+     * view does (a close follow camera already shows the model large): magnification stays ≥ 1.
      */
-    fun fov(distance: Double, rotorRadius: Double, framing: Double, mainFov: Double): Double {
+    fun fov(distance: Double, rotorRadius: Double, framing: Double, mainFov: Double, mainHeight: Double, insetHeight: Double): Double {
         val halfHeight = rotorRadius / framing.coerceIn(0.1, 1.0)
         val fov = Math.toDegrees(2.0 * atan(halfHeight / distance.coerceAtLeast(0.1)))
-        return fov.coerceIn(0.3, mainFov)
+        val atMostUnity = Math.toDegrees(2.0 * atan(tan(Math.toRadians(mainFov) / 2) * insetHeight / mainHeight))
+        return fov.coerceIn(0.3, atMostUnity)
     }
 
-    /** How much larger things look in the inset than in the main view. */
-    fun magnification(mainFov: Double, insetFov: Double): Double =
-        tan(Math.toRadians(mainFov) / 2) / tan(Math.toRadians(insetFov) / 2)
+    /**
+     * How much larger things look on screen in the inset than in the main view: pixels per unit of view angle
+     * in each, so a small inset shows less than the ratio of the fields of view alone suggests.
+     */
+    fun magnification(mainFov: Double, mainHeight: Double, insetFov: Double, insetHeight: Double): Double =
+        (insetHeight / tan(Math.toRadians(insetFov) / 2)) / (mainHeight / tan(Math.toRadians(mainFov) / 2))
 }

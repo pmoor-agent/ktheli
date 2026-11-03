@@ -100,12 +100,20 @@ class Scene(private val view: ViewSettings) : Disposable {
 
     /**
      * Renders the 3D view into [main] and, if given, the binocular inset into [binoculars]. [windAtSock] is the
-     * wind (world NED) at [windsockTop].
+     * wind (world NED) at [windsockTop]; [frameSeconds] the time since the last frame (camera smoothing, rotor
+     * spin, blade blur).
      */
-    fun render(state: RigidBodyState, rotors: RotorPose, windAtSock: Vec3, main: Viewport, binoculars: Viewport? = null) {
+    fun render(
+        state: RigidBodyState,
+        rotors: RotorPose,
+        windAtSock: Vec3,
+        main: Viewport,
+        binoculars: Viewport? = null,
+        frameSeconds: Float = 1f / 60f,
+    ) {
         val (x, y, width, height) = main
         val visual = model?.visual ?: return
-        val dt = Gdx.graphics.deltaTime.coerceIn(0f, 0.1f)
+        val dt = frameSeconds.coerceIn(0f, 0.1f)
         val fps = if (dt > 0f) 1f / dt else 60f
         orientWindsock(windAtSock)
         heli?.update(state, rotors, dt, fps)
@@ -131,8 +139,10 @@ class Scene(private val view: ViewSettings) : Disposable {
         if (binoculars != null) {
             // Same position and target as the main camera, narrower field of view sized to the model.
             val distance = (pose.target - pose.position).length()
-            val fov = Binoculars.fov(distance, visual.rotorRadius, view.camera.binoculars.framing, pose.fovDegrees)
-            view.binocularMagnification = Binoculars.magnification(pose.fovDegrees, fov)
+            val fov = Binoculars.fov(
+                distance, visual.rotorRadius, view.camera.binoculars.framing, pose.fovDegrees, height.toDouble(), binoculars.height.toDouble(),
+            )
+            view.binocularMagnification = Binoculars.magnification(pose.fovDegrees, height.toDouble(), fov, binoculars.height.toDouble())
             inset.position.set(camera.position)
             inset.fieldOfView = fov.toFloat()
             inset.viewportWidth = binoculars.width.toFloat()

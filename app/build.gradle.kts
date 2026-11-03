@@ -16,12 +16,24 @@ dependencies {
         exclude(group = "org.lwjgl", module = "lwjgl-sdl") // we use the GLFW backend only
     }
     runtimeOnly(libs.imgui.natives.linux)
+
+    // Headless 3D rendering in tests: an OpenGL context via EGL without any window system (Mesa).
+    testImplementation(libs.lwjgl.egl)
+    testImplementation(libs.gdx.backend.headless)
 }
 
 configurations.configureEach {
     resolutionStrategy.eachDependency {
         if (requested.group == "org.lwjgl") useVersion(libs.versions.lwjgl.get())
     }
+}
+
+tasks.withType<Test>().configureEach {
+    // Rendered-image tests use Mesa's software rasterizer by default so pixels match across machines;
+    // -Pgpu renders on the real GPU instead. -PupdateGolden rewrites the reference images.
+    if (!project.hasProperty("gpu")) environment("LIBGL_ALWAYS_SOFTWARE", "1")
+    systemProperty("ktheli.updateGolden", project.hasProperty("updateGolden"))
+    systemProperty("ktheli.goldenDir", layout.projectDirectory.dir("src/test/resources/golden").asFile.absolutePath)
 }
 
 application {

@@ -1,18 +1,22 @@
 package ktheli.app
 
 import com.badlogic.gdx.Input.Keys
-import ktheli.app.harness.uiTest
+import ktheli.app.harness.HeadlessGl
+import ktheli.app.harness.UiDriver
 import org.lwjgl.glfw.GLFW.GLFW_HAT_LEFT
 import org.lwjgl.glfw.GLFW.GLFW_HAT_UP
 import java.nio.file.Paths
 import kotlin.test.Test
 
-/** Renders a tour of the UI to `app/build/ui-snapshots/` for visual review (no assertions). */
+/**
+ * Renders a tour of the UI to `app/build/ui-snapshots/` for visual review (no assertions): full frames with the
+ * 3D scene where headless OpenGL is available, else the UI alone rasterized on the CPU.
+ */
 class UiSnapshotTest {
     private val out = Paths.get("build/ui-snapshots")
 
     @Test
-    fun `ui tour`() = uiTest { ui ->
+    fun `ui tour`() = UiDriver(gl = HeadlessGl.available).use { ui ->
         ui.click("Input")
         ui.snapshot(out.resolve("01-input-menu.png"))
         ui.click("Input/Controls...")
