@@ -113,7 +113,7 @@ class UiDriver(
             store = ProfileStore(this.configDir.resolve("input.json")),
             settingsStore = SettingsStore(this.configDir.resolve("settings.json")),
         )
-        if (gl) scene = Scene(core.session.view)
+        if (gl) scene = Scene()
         frame()
     }
 
@@ -138,7 +138,9 @@ class UiDriver(
         val timer = gpuTimer!!
         timer.begin()
         offscreen!!.begin()
-        WorldView.render(core, scene!!, width, height, width.toFloat(), height.toFloat(), DT.toFloat())
+        core.profiler.measure(ktheli.app.FrameProfiler.Section.WORLD) {
+            WorldView.render(core.session, scene!!, core.ui.menuBarHeight, width, height, width.toFloat(), height.toFloat(), DT.toFloat())
+        }
         GL11.glViewport(0, 0, width, height)
         core.profiler.measure(ktheli.app.FrameProfiler.Section.UI_RENDER) { gl3!!.renderDrawData(ImGui.getDrawData()) }
         timer.end()

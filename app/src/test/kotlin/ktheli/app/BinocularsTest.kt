@@ -44,17 +44,17 @@ class BinocularsTest {
 
     @Test
     fun `binoculars toggle from key, menu and dialog, and show a frame`() = uiTest { ui ->
-        assertFalse(ui.core.session.view.camera.binoculars.enabled)
+        assertFalse(ui.core.session.camera.binoculars.enabled)
         ui.press(Keys.B)
-        assertTrue(ui.core.session.view.camera.binoculars.enabled)
+        assertTrue(ui.core.session.camera.binoculars.enabled)
         ui.waitForText("BINOCULARS")
         ui.menu("View", "Binoculars")
-        assertFalse(ui.core.session.view.camera.binoculars.enabled)
+        assertFalse(ui.core.session.camera.binoculars.enabled)
         ui.press(Keys.F5)
         ui.click("Camera/Show binoculars")
-        assertTrue(ui.core.session.view.camera.binoculars.enabled)
+        assertTrue(ui.core.session.camera.binoculars.enabled)
         ui.click("Camera/Top right")
-        assertEquals(Corner.TOP_RIGHT, ui.core.session.view.camera.binoculars.corner)
+        assertEquals(Corner.TOP_RIGHT, ui.core.session.camera.binoculars.corner)
         ui.waitFor("Camera/Framing")
         ui.snapshot(Paths.get("build/ui-snapshots/09-camera-binoculars.png"))
     }
@@ -64,7 +64,7 @@ class BinocularsTest {
         val dir = Files.createTempDirectory("ktheli-binoculars")
         try {
             UiDriver(configDir = dir).use { ui -> ui.press(Keys.B) }
-            UiDriver(configDir = dir).use { ui -> assertTrue(ui.core.session.view.camera.binoculars.enabled) }
+            UiDriver(configDir = dir).use { ui -> assertTrue(ui.core.session.camera.binoculars.enabled) }
         } finally {
             dir.toFile().deleteRecursively()
         }

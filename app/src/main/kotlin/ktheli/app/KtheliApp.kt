@@ -39,7 +39,7 @@ class KtheliApp : ApplicationAdapter() {
         Gdx.app.log("ktheli", "GL: " + Gdx.gl.glGetString(GL20.GL_RENDERER) + " / " + Gdx.gl.glGetString(GL20.GL_VERSION))
         core = AppCore(Joysticks, GdxKeyboard, host)
         gpuTimer = GpuTimer()
-        scene = Scene(core.session.view)
+        scene = Scene()
         audio = AudioOutput.open()
         if (audio == null) core.session.status.show("No sound output available")
         Files.createDirectories(ConfigPaths.dir)
@@ -80,7 +80,12 @@ class KtheliApp : ApplicationAdapter() {
         Gdx.gl.glViewport(0, 0, bw, bh)
         Gdx.gl.glClearColor(0.55f, 0.72f, 0.92f, 1f)
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT or GL20.GL_DEPTH_BUFFER_BIT)
-        WorldView.render(core, scene, bw, bh, Gdx.graphics.width.toFloat(), Gdx.graphics.height.toFloat(), frameSeconds.toFloat())
+        core.profiler.measure(FrameProfiler.Section.WORLD) {
+            WorldView.render(
+                core.session, scene, core.ui.menuBarHeight, bw, bh,
+                Gdx.graphics.width.toFloat(), Gdx.graphics.height.toFloat(), frameSeconds.toFloat(),
+            )
+        }
         Gdx.gl.glViewport(0, 0, bw, bh)
 
         core.profiler.measure(FrameProfiler.Section.UI_RENDER) { imgui.endFrame() }

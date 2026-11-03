@@ -46,7 +46,10 @@ class AppSession(
     val runner = SimRunner(settings.model, settings.environment.toSettings(), settings.flyingField)
     val input = InputController(store, joysticks, keyboard, keys, status::show)
     val telemetry = Telemetry()
-    val view = ViewSettings(settings.camera)
+
+    /** Camera configuration (persisted); [cameraPose] is where it actually is this frame. */
+    var camera: CameraSettings = settings.camera
+        private set
 
     /** This frame's stick and switch positions, as fed to the simulation. */
     var controls: Controls = Controls.NEUTRAL
@@ -56,8 +59,15 @@ class AppSession(
     var crashSettings: CrashSettings = settings.crash
         private set
 
-    /** Where the sound is heard: the renderer moves it with the camera. Starts where the pilot stands. */
+    private val rig = CameraRig()
+
+    /** The main camera this frame, from [updateCamera]: what the renderer shows and where the sound is heard. */
+    lateinit var cameraPose: CameraPose
+        private set
+
+    /** Where the sound is heard: at the camera, facing what it looks at. */
     var listener = Listener(runner.field.pilotEye, Vec3(0.0, 1.0, 0.0))
+        private set
 
     /** Crashes so far this session; the sound plays an impact whenever it goes up. */
     private var impacts = 0
@@ -65,6 +75,7 @@ class AppSession(
 
     init {
         syncFlightModes()
+        updateCamera(0.0)
     }
 
     /** Reads keyboard and joysticks; returns the press-actions their buttons triggered, for the caller to route. */
@@ -85,6 +96,16 @@ class AppSession(
         return ticks
     }
 
+    /**
+     * Moves the camera for this frame (display only: it never feeds back into the simulation) and the listener
+     * with it. Call after [advance], before drawing and sound.
+     */
+    fun updateCamera(frameSeconds: Double) {
+        val pose = rig.update(runner.renderState(), runner.model.visual.rotorRadius, camera, frameSeconds.coerceIn(0.0, 0.1), runner.field.pilotEye)
+        cameraPose = pose
+        listener = Listener.facing(pose.position, pose.target, listener.right)
+    }
+
     /** Executes a press-action that belongs to the simulator; window toggles are ignored (the UI owns them). */
     fun perform(action: Action) {
         when (action) {
@@ -97,11 +118,11 @@ class AppSession(
             Action.FLIGHT_MODE -> input.cycleFlightMode()
             Action.THROTTLE_HOLD -> input.toggleThrottleHold()
             Action.COLLECTIVE_ZERO -> input.digital.zeroCollective()
-            Action.AUTO_ZOOM -> view.camera.let { changeCamera(it.copy(autoZoom = !it.autoZoom)) }
-            Action.CAMERA_MODE -> view.camera.let {
+            Action.AUTO_ZOOM -> camera.let { changeCamera(it.copy(autoZoom = !it.autoZoom)) }
+            Action.CAMERA_MODE -> camera.let {
                 changeCamera(it.copy(mode = CameraMode.entries[(it.mode.ordinal + 1) % CameraMode.entries.size]))
             }
-            Action.BINOCULARS -> view.camera.let {
+            Action.BINOCULARS -> camera.let {
                 changeCamera(it.copy(binoculars = it.binoculars.copy(enabled = !it.binoculars.enabled)))
             }
             Action.SOUND -> changeSound(sound.copy(enabled = !sound.enabled))
@@ -147,7 +168,7 @@ class AppSession(
     }
 
     fun changeCamera(camera: CameraSettings) {
-        view.camera = camera
+        this.camera = camera
         save(settings.copy(camera = camera))
     }
 

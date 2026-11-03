@@ -37,6 +37,7 @@ class AppCore(
         val actions = profiler.measure(FrameProfiler.Section.INPUT) { session.pollInput(frameSeconds, keyboardEnabled) }
         actions.forEach(::perform)
         profiler.ticks(profiler.measure(FrameProfiler.Section.PHYSICS) { session.advance(frameSeconds) })
+        session.updateCamera(frameSeconds)
     }
 
     /** Builds this frame's UI (inside an ImGui frame). */

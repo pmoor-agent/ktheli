@@ -31,12 +31,11 @@ fun Vec3.toGdx() = Vector3(y.toFloat(), (-z).toFloat(), (-x).toFloat())
  * The 3D view: the current [FlyingField] ([FieldRenderer]), the current model ([HeliRenderer]) with its
  * shadow, and the camera ([CameraRig]), plus the optional binocular inset.
  */
-class Scene(private val view: ViewSettings) : Disposable {
+class Scene : Disposable {
     val camera = PerspectiveCamera(60f, 1f, 1f).apply {
         near = 0.05f
         far = 1000f
     }
-    private val rig = CameraRig()
     private val inset = PerspectiveCamera(10f, 1f, 1f)
 
     private val batch = ModelBatch()
@@ -77,24 +76,22 @@ class Scene(private val view: ViewSettings) : Disposable {
         field = FieldRenderer(next)
     }
 
-    /** The main camera of the last [render]: also where the sound is heard. */
-    var pose: CameraPose? = null
-        private set
-
     /** A viewport in back-buffer pixels, origin at the bottom left (OpenGL convention). */
     data class Viewport(val x: Int, val y: Int, val width: Int, val height: Int)
 
     /**
-     * Renders the 3D view into [main] and, if given, the binocular inset into [binoculars]. [windAtSock] is the
-     * wind (world NED) at the current field's [FlyingField.windsockTop]; [frameSeconds] the time since the last frame (camera smoothing, rotor
-     * spin, blade blur).
+     * Renders the 3D view from [pose] into [main] and, if given, the binocular inset (framing the model to
+     * [binocularFraming] of its height) into [binoculars]. [windAtSock] is the wind (world NED) at the current
+     * field's [FlyingField.windsockTop]; [frameSeconds] the time since the last frame (rotor spin, blade blur).
      */
     fun render(
         state: RigidBodyState,
+        pose: CameraPose,
         rotors: RotorPose,
         windAtSock: Vec3,
         main: Viewport,
         binoculars: Viewport? = null,
+        binocularFraming: Double = BinocularSettings().framing,
         frameSeconds: Float = 1f / 60f,
     ) {
         val (x, y, width, height) = main
@@ -114,8 +111,6 @@ class Scene(private val view: ViewSettings) : Disposable {
         val s = 2.2f * radius / (1f + max(0f, p.y) * 0.15f)
         shadow.transform.setToTranslation(p.x, FieldRenderer.SHADOW_Y, p.z).scale(s, 1f, s)
 
-        val pose = rig.update(state, visual.rotorRadius, view.camera, dt.toDouble(), field.field.pilotEye)
-        this.pose = pose
         camera.position.set(pose.position.toGdx())
         camera.fieldOfView = pose.fovDegrees.toFloat()
         camera.up.set(Vector3.Y)
@@ -127,10 +122,7 @@ class Scene(private val view: ViewSettings) : Disposable {
         if (binoculars != null) {
             // Same position and target as the main camera, narrower field of view sized to the model.
             val distance = (pose.target - pose.position).length()
-            val fov = Binoculars.fov(
-                distance, visual.rotorRadius, view.camera.binoculars.framing, pose.fovDegrees, height.toDouble(), binoculars.height.toDouble(),
-            )
-            view.binocularMagnification = Binoculars.magnification(pose.fovDegrees, height.toDouble(), fov, binoculars.height.toDouble())
+            val fov = Binoculars.inset(pose, visual.rotorRadius, binocularFraming, height.toDouble(), binoculars.height.toDouble()).fovDegrees
             inset.position.set(camera.position)
             inset.fieldOfView = fov.toFloat()
             inset.viewportWidth = binoculars.width.toFloat()
@@ -148,8 +140,6 @@ class Scene(private val view: ViewSettings) : Disposable {
             Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT or GL20.GL_DEPTH_BUFFER_BIT)
             drawWorld(inset, field)
             Gdx.gl.glDisable(GL20.GL_SCISSOR_TEST)
-        } else {
-            view.binocularMagnification = 0.0
         }
     }
 

@@ -59,6 +59,19 @@ object Binoculars {
         return fov.coerceIn(0.3, atMostUnity)
     }
 
+    /** The inset's vertical field of view (degrees) and how much it magnifies, see [fov] and [magnification]. */
+    data class Inset(val fovDegrees: Double, val magnification: Double)
+
+    /**
+     * The inset for the main camera at [pose], framing a model of [rotorRadius]. [mainHeight] and [insetHeight]
+     * are the heights of the 3D view and the inset in the same unit (pixels or logical pixels).
+     */
+    fun inset(pose: CameraPose, rotorRadius: Double, framing: Double, mainHeight: Double, insetHeight: Double): Inset {
+        val distance = (pose.target - pose.position).length()
+        val fov = fov(distance, rotorRadius, framing, pose.fovDegrees, mainHeight, insetHeight)
+        return Inset(fov, magnification(pose.fovDegrees, mainHeight, fov, insetHeight))
+    }
+
     /**
      * How much larger things look on screen in the inset than in the main view: pixels per unit of view angle
      * in each, so a small inset shows less than the ratio of the fields of view alone suggests.

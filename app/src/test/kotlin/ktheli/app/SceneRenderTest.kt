@@ -23,17 +23,20 @@ class SceneRenderTest {
     fun needGl() = assumeTrue(HeadlessGl.available, "no headless OpenGL")
 
     /**
-     * Renders [Scene] with explicit poses, no simulation. Defaults to the open field: plain grass makes a clean
+     * Renders [Scene] with explicit model states (the camera follows them like in the app), no simulation. Defaults to the open field: plain grass makes a clean
      * background for telling the model's pixels apart.
      */
     private class Probe(
-        camera: CameraSettings,
+        val camera: CameraSettings,
         val width: Int = 640,
         val height: Int = 360,
         private val field: FlyingField = FlyingFields.OPEN,
     ) : AutoCloseable {
-        val view = ViewSettings(camera)
-        val scene = Scene(view)
+        val scene = Scene()
+        private val rig = CameraRig()
+
+        /** The camera of the last [render]. */
+        lateinit var pose: CameraPose
         private val offscreen = Offscreen(width, height)
 
         fun render(
@@ -45,7 +48,8 @@ class SceneRenderTest {
             scene.use(model)
             scene.useField(field)
             offscreen.begin()
-            scene.render(state, rotors, Vec3.ZERO, Scene.Viewport(0, 0, width, height), binoculars, 1f / 60f)
+            pose = rig.update(state, model.visual.rotorRadius, camera, 1.0 / 60.0, field.pilotEye)
+            scene.render(state, pose, rotors, Vec3.ZERO, Scene.Viewport(0, 0, width, height), binoculars, camera.binoculars.framing, 1f / 60f)
             return offscreen.read()
         }
 
@@ -113,7 +117,7 @@ class SceneRenderTest {
 
     @Test
     fun `binoculars magnify the model in their inset`() = Probe(CameraSettings(binoculars = BinocularSettings(enabled = true))).use { p ->
-        val r = Binoculars.layout(p.width.toFloat(), p.height.toFloat(), 0f, p.view.camera.binoculars)
+        val r = Binoculars.layout(p.width.toFloat(), p.height.toFloat(), 0f, p.camera.binoculars)
         val inset = Scene.Viewport(r.x.toInt(), (p.height - r.y - r.height).toInt(), r.width.toInt(), r.height.toInt())
         val image = p.render(parked, RotorPose(0.0, 0.0, bladeAzimuth = 0.0), inset)
         Images.write(image, out.resolve("binoculars.png"))
@@ -121,9 +125,11 @@ class SceneRenderTest {
         val inInset = Images.objects(image, insetRegion).box!!
         val main = Images.objects(image, Images.Region(p.width / 2 - 50, p.height / 2 - 40, p.width / 2 + 50, p.height / 2 + 40)).box!!
         val ratio = inInset.height.toDouble() / main.height
+        val reported = Binoculars.inset(p.pose, HelicopterModels.TREX_450.visual.rotorRadius, p.camera.binoculars.framing, p.height.toDouble(), r.height.toDouble())
+            .magnification
         println("binoculars: model %d px tall in the inset, %d px in the main view: x%.1f (reported x%.1f)".format(
-            inInset.height, main.height, ratio, p.view.binocularMagnification))
-        assertTrue(ratio in 0.75 * p.view.binocularMagnification..1.25 * p.view.binocularMagnification, "label matches what you see")
+            inInset.height, main.height, ratio, reported))
+        assertTrue(ratio in 0.75 * reported..1.25 * reported, "label matches what you see")
     }
 
     @Test

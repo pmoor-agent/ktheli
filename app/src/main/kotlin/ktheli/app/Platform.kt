@@ -10,12 +10,6 @@ interface AppHost {
     fun requestScreenshot()
 }
 
-/** View options shared by the UI (which changes them) and the renderer (which reads them). */
-class ViewSettings(var camera: CameraSettings = CameraSettings()) {
-    /** Current binocular magnification, written by the renderer for the UI to show (0 = not rendered yet). */
-    var binocularMagnification = 0.0
-}
-
 object GdxKeyboard : KeyboardState {
     override fun isPressed(keycode: Int) = Gdx.input.isKeyPressed(keycode)
 }

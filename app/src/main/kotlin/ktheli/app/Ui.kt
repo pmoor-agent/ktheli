@@ -29,7 +29,7 @@ class Ui(
     val showTelemetry = ImBoolean(false)
     val controlsWindow = ControlsWindow(session.input, { session.controls }, { session.status.message })
     val environmentWindow = EnvironmentWindow({ session.runner.environment }, session::changeEnvironment)
-    val cameraWindow = CameraWindow({ session.view.camera }, session::changeCamera)
+    val cameraWindow = CameraWindow({ session.camera }, session::changeCamera)
     val performanceWindow = PerformanceWindow(profiler, { session.runner.sim.tickRateHz })
     private val showDemo = ImBoolean(false)
     private var openAbout = false
@@ -44,7 +44,7 @@ class Ui(
         drawMenuBar()
         if (showHud.get()) drawHud()
         session.runner.crash?.let(::drawCrash)
-        if (session.view.camera.binoculars.enabled) drawBinocularFrame()
+        if (session.camera.binoculars.enabled) drawBinocularFrame()
         controlsWindow.draw(menuBarHeight)
         environmentWindow.draw(menuBarHeight)
         cameraWindow.draw(menuBarHeight)
@@ -151,9 +151,9 @@ class Ui(
             ImGui.separator()
             CameraMode.entries.forEachIndexed { i, mode ->
                 val shortcut = if (i == 0) shortcut(Action.CAMERA_MODE) else ""
-                if (Gui.menuItem(mode.label, shortcut, session.view.camera.mode == mode)) session.changeCamera(session.view.camera.copy(mode = mode))
+                if (Gui.menuItem(mode.label, shortcut, session.camera.mode == mode)) session.changeCamera(session.camera.copy(mode = mode))
             }
-            actionItem("Binoculars", Action.BINOCULARS, session.view.camera.binoculars.enabled)
+            actionItem("Binoculars", Action.BINOCULARS, session.camera.binoculars.enabled)
             actionItem("Camera settings...", Action.CAMERA_DIALOG, cameraWindow.open.get())
             ImGui.separator()
             actionItem("Save screenshot", Action.SCREENSHOT)
@@ -230,7 +230,9 @@ class Ui(
     /** A frame and magnification label over the binocular inset (which the 3D renderer draws underneath). */
     private fun drawBinocularFrame() {
         val io = ImGui.getIO()
-        val r = Binoculars.layout(io.displaySizeX, io.displaySizeY - menuBarHeight, menuBarHeight, session.view.camera.binoculars)
+        val b = session.camera.binoculars
+        val viewHeight = io.displaySizeY - menuBarHeight
+        val r = Binoculars.layout(io.displaySizeX, viewHeight, menuBarHeight, b)
         val flags = ImGuiWindowFlags.NoDecoration or ImGuiWindowFlags.NoBackground or ImGuiWindowFlags.NoInputs or
             ImGuiWindowFlags.NoSavedSettings or ImGuiWindowFlags.NoFocusOnAppearing or ImGuiWindowFlags.NoNav
         ImGui.setNextWindowPos(r.x, r.y)
@@ -241,8 +243,8 @@ class Ui(
             frame.addRect(r.x - 1f, r.y - 1f, r.x + r.width + 1f, r.y + r.height + 1f, ImColor.rgba(20, 20, 24, 230), 0f, 0, 4f)
             frame.addRect(r.x, r.y, r.x + r.width, r.y + r.height, ImColor.rgba(235, 235, 240, 230), 0f, 0, 1.5f)
             ImGui.getWindowDrawList().addRectFilled(r.x, r.y, r.x + 150f, r.y + ImGui.getTextLineHeightWithSpacing() + 6f, ImColor.rgba(0, 0, 0, 120))
-            val m = session.view.binocularMagnification
-            Gui.textColored(1f, 1f, 1f, 0.95f, if (m > 0.0) "BINOCULARS x%.1f".format(m) else "BINOCULARS")
+            val m = Binoculars.inset(session.cameraPose, session.runner.model.visual.rotorRadius, b.framing, viewHeight.toDouble(), r.height.toDouble())
+            Gui.textColored(1f, 1f, 1f, 0.95f, "BINOCULARS x%.1f".format(m.magnification))
         }
         Gui.end()
     }
