@@ -12,6 +12,7 @@ import com.badlogic.gdx.graphics.g3d.ModelBatch
 import com.badlogic.gdx.graphics.g3d.ModelInstance
 import com.badlogic.gdx.graphics.g3d.attributes.BlendingAttribute
 import com.badlogic.gdx.graphics.g3d.attributes.ColorAttribute
+import com.badlogic.gdx.graphics.g3d.attributes.DepthTestAttribute
 import com.badlogic.gdx.graphics.g3d.attributes.IntAttribute
 import com.badlogic.gdx.graphics.g3d.environment.DirectionalLight
 import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder
@@ -47,7 +48,12 @@ class Scene(private val view: ViewSettings) : Disposable {
     // Unit-diameter shadow disc, scaled to each model's rotor.
     private val shadowModel: Model = ModelBuilder().createCylinder(
         1f, 0.001f, 1f, 24,
-        Material(ColorAttribute.createDiffuse(Color.BLACK), BlendingAttribute(0.35f), IntAttribute.createCullFace(GL20.GL_NONE)),
+        Material(
+            ColorAttribute.createDiffuse(Color.BLACK),
+            BlendingAttribute(0.35f),
+            IntAttribute.createCullFace(GL20.GL_NONE),
+            DepthTestAttribute(GL20.GL_LEQUAL, false), // painted on the ground: never hides what's drawn after it
+        ),
         Usage.Position.toLong(),
     )
     private val shadow = ModelInstance(shadowModel)
@@ -150,10 +156,18 @@ class Scene(private val view: ViewSettings) : Disposable {
         }
     }
 
+    /**
+     * Draws in layers: ground and pads, then the shadow on them, then everything else. Pads and shadow are both
+     * blended, and within one flush ModelBatch sorts blended renderables by distance; with the model just beyond
+     * the pad's centre the shadow came first and hid the pad (a green disc of grass).
+     */
     private fun drawWorld(cam: PerspectiveCamera, field: FieldRenderer) {
         batch.begin(cam)
-        field.render(batch, environment)
+        field.renderGround(batch, environment)
+        batch.flush()
         batch.render(shadow)
+        batch.flush()
+        field.renderObjects(batch, environment)
         heli?.render(batch, environment)
         batch.end()
     }

@@ -33,7 +33,7 @@ class SceneRenderTest {
         private val field: FlyingField = FlyingFields.OPEN,
     ) : AutoCloseable {
         val view = ViewSettings(camera)
-        private val scene = Scene(view)
+        val scene = Scene(view)
         private val offscreen = Offscreen(width, height)
 
         fun render(
@@ -176,6 +176,27 @@ class SceneRenderTest {
         println("helipad: %d asphalt pixels, %d white (ring and H)".format(asphalt, white))
         assertTrue(asphalt > 0.04 * p.width * p.height, "asphalt pad around the model")
         assertTrue(white > 0.01 * p.width * p.height, "white ring and H")
+    }
+
+    /**
+     * Pad and shadow are both blended, and blended objects are drawn far to near: with the model just beyond the
+     * pad's centre, the shadow used to be drawn first and hide the pad, showing a green disc of grass.
+     */
+    @Test
+    fun `the shadow darkens the pad wherever the model hovers over it`() = Probe(CameraSettings(), field = FlyingFields.HOME).use { p ->
+        for (north in listOf(0.4, -0.4)) { // beyond and in front of the pad centre, seen from the pilot
+            val hovering = RigidBodyState(position = Vec3(north, 0.0, -0.5), attitude = parked.attitude)
+            val image = p.render(hovering, RotorPose(0.0, 0.0, bladeAzimuth = 0.0))
+            Images.write(image, out.resolve("shadow-on-pad-%+.1f.png".format(north)))
+            for (dx in listOf(-0.25, 0.25)) { // inside the shadow, nearer and farther than the model
+                val s = p.scene.camera.project(Vec3(north + dx, 0.0, 0.0).toGdx(), 0f, 0f, p.width.toFloat(), p.height.toFloat())
+                val c = image.getRGB(s.x.toInt(), p.height - 1 - s.y.toInt())
+                val r = c shr 16 and 255
+                val g = c shr 8 and 255
+                val b = c and 255
+                assertTrue(maxOf(r, g, b) - minOf(r, g, b) < 18 && r < 90, "shadowed asphalt at ${north + dx} m north, not (%d, %d, %d)".format(r, g, b))
+            }
+        }
     }
 
     @Test

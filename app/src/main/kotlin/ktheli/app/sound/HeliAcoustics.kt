@@ -7,6 +7,7 @@ import ktheli.physics.model.AircraftModel
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.sqrt
 
 /** Where the sound is heard: a position and the listener's right-hand direction (world NED). */
 data class Listener(val position: Vec3, val right: Vec3) {
@@ -29,9 +30,10 @@ data class Listener(val position: Vec3, val right: Vec3) {
  * Turns the simulated helicopter's state into [SoundParams]. Display only, like the renderer: it reads the
  * simulation and never feeds back.
  *
- * The levels follow the physics loosely: rotor thickness noise grows with the cube of tip speed, loading
- * noise with thrust, the motor's whine with its current, and the blades "slap" when heavily loaded or when
- * they meet their own wake (vortex ring state).
+ * The levels follow the physics loosely: rotor thickness noise grows with the cube of tip speed, broadband
+ * blade noise with its fifth power and the square of the load (so a hard pull "swooshes"), the downwash roar
+ * with thrust, the motor's whine with its current, and the blades "slap" when heavily loaded or when they meet
+ * their own wake (vortex ring state).
  */
 object HeliAcoustics {
     /** What the model is doing, independent of where it is heard. */
@@ -108,7 +110,7 @@ object HeliAcoustics {
         volume: Double,
     ): SoundParams {
         val m = source.tipSpeed / REFERENCE_TIP_SPEED
-        val load = min(abs(source.loading), 3.0)
+        val load = min(abs(source.loading), 4.0)
         val mt = source.tailTipSpeed / REFERENCE_TIP_SPEED
         val tailLoad = min(abs(source.tailLoading) / 0.15, 2.0)
         val running = smoothstep(source.motorRpm / 3000.0) * source.driven
@@ -123,11 +125,14 @@ object HeliAcoustics {
             bladePassHz = source.mainBlades * source.mainRpm / 60.0,
             rotorLevel = 0.35 * m * m * m * (0.4 + 0.6 * load),
             rotorSharpness = (0.25 * max(0.0, load - 1.0) + source.slap).coerceIn(0.0, 1.0),
-            rotorNoise = 0.12 * m * m * (0.5 + 0.5 * load),
+            // Broadband blade noise: ~tip speed^5, and with the square of the load (angle of attack).
+            rotorNoise = min(0.25 * m * m * m * m * m * (0.3 + 0.7 * load * load), 1.5),
+            swishHz = 800.0 * m * (1.0 + 0.2 * load),
+            washLevel = 0.15 * m * load * sqrt(load),
             tailPassHz = source.tailBlades * source.tailRpm / 60.0,
             tailLevel = 0.10 * mt * mt * mt + 0.08 * tailLoad * mt * mt,
             motorHz = source.motorRpm / 60.0 * POLE_PAIRS,
-            motorLevel = running * (0.05 + 0.10 * current),
+            motorLevel = running * (0.03 + 0.07 * current),
             gearHz = source.motorRpm / 60.0 * PINION_TEETH,
             gearLevel = running * 0.025 * (0.5 + 0.5 * current),
             windLevel = 0.08 * min((ambientWind / 8.0).let { it * it }, 2.0),
@@ -141,7 +146,7 @@ object HeliAcoustics {
 
     /** After a crash: the model falls silent, apart from the impact itself (louder the faster it hit). */
     fun crashed(params: SoundParams, impacts: Int, impactSpeed: Double): SoundParams = params.copy(
-        rotorLevel = 0.0, rotorNoise = 0.0, tailLevel = 0.0, motorLevel = 0.0, gearLevel = 0.0,
+        rotorLevel = 0.0, rotorNoise = 0.0, washLevel = 0.0, tailLevel = 0.0, motorLevel = 0.0, gearLevel = 0.0,
         impacts = impacts, impactLevel = (0.35 + impactSpeed / 30.0).coerceIn(0.35, 1.0),
     )
 

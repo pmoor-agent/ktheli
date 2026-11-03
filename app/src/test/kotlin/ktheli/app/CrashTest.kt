@@ -75,7 +75,7 @@ class CrashTest {
         val after = ui.core.soundParams()
         assertEquals(before.impacts + 1, after.impacts)
         assertTrue(after.impactLevel > 0.3)
-        assertEquals(0.0, after.rotorLevel + after.motorLevel + after.tailLevel)
+        assertEquals(0.0, after.rotorLevel + after.rotorNoise + after.washLevel + after.motorLevel + after.tailLevel)
         assertTrue(after.volume > 0)
     }
 
