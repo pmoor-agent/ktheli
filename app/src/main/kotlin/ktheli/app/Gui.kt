@@ -113,6 +113,14 @@ object Gui {
     fun checkbox(label: String, value: Boolean, name: String = traceName(label)): Boolean =
         ImGui.checkbox(label, value).also { UiTrace.item(name) }
 
+    /** A slider; returns the new value if the user changed it, else null. */
+    fun slider(label: String, value: Double, min: Double, max: Double, format: String, name: String = traceName(label)): Double? {
+        val v = floatArrayOf(value.toFloat())
+        val changed = ImGui.sliderFloat(label, v, min.toFloat(), max.toFloat(), format)
+        UiTrace.item(name)
+        return if (changed) v[0].toDouble() else null
+    }
+
     fun selectable(label: String, selected: Boolean, name: String = traceName(label)): Boolean =
         ImGui.selectable(label, selected).also { UiTrace.item(name) }
 

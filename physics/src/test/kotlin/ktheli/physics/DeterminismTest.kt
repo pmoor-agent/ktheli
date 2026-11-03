@@ -75,8 +75,8 @@ class DeterminismTest {
     }
 
     private companion object {
-        val GOLDEN_DISC = 0x8b3f2d11759b4ec7uL.toLong()
-        val GOLDEN_BLADES = 0x3dd9a3618103b556uL.toLong()
-        val GOLDEN = 0x953bafce4971c8f0uL.toLong()
+        val GOLDEN_DISC = 0xcfd26c9459dd9814uL.toLong()
+        val GOLDEN_BLADES = 0x62a26f0860b6b7fcuL.toLong()
+        val GOLDEN = 0x4944919a453d52f4uL.toLong()
     }
 }

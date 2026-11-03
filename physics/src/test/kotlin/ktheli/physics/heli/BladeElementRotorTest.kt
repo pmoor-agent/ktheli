@@ -43,8 +43,8 @@ class BladeElementRotorTest {
         var moment = Vec3.ZERO
         var torque = 0.0
         repeat(steps) { i ->
-            val l = rotor.loads(body, omega, pitches, 1.0)
-            rotor.advance(l, body, body, omega, pitches, hover, 1.0, dt)
+            val l = rotor.loads(body, omega, pitches, 1.0, HubAir.STILL)
+            rotor.advance(l, body, body, omega, pitches, hover, 1.0, HubAir.STILL, dt)
             if (i >= steps - avgSteps) {
                 force += l.force / avgSteps.toDouble()
                 moment += l.hubMoment / avgSteps.toDouble()

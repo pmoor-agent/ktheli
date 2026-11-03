@@ -22,6 +22,13 @@ open class MainRotorLoads(
     val power: Double,
 )
 
+/** The air at the rotor hub: density, and wind (air velocity over ground) in the body frame. */
+class HubAir(val density: Double, val wind: Vec3) {
+    companion object {
+        val STILL = HubAir(RotorDisc.AIR_DENSITY, Vec3.ZERO)
+    }
+}
+
 /**
  * A main rotor model: computes loads and advances its internal states (flapping, inflow). [loads] is called
  * several times per tick (RK4 stages) and must not change state; [advance] is called once per tick with the
@@ -30,8 +37,9 @@ open class MainRotorLoads(
 interface MainRotor {
     val name: String
 
-    fun loads(s: RigidBodyState, rotorSpeed: Double, pitches: Helicopter.BladePitches, groundEffect: Double): MainRotorLoads
+    fun loads(s: RigidBodyState, rotorSpeed: Double, pitches: Helicopter.BladePitches, groundEffect: Double, air: HubAir): MainRotorLoads
 
+    /** [air] is the hub air from the start of the tick. */
     fun advance(
         start: MainRotorLoads,
         before: RigidBodyState,
@@ -40,6 +48,7 @@ interface MainRotor {
         pitches: Helicopter.BladePitches,
         specificForce: Vec3,
         groundEffect: Double,
+        air: HubAir,
         dt: Double,
     )
 
@@ -74,10 +83,10 @@ class FlappingDiscRotor(private val params: MainRotorParams) : MainRotor {
     override val coning get() = 0.0
     override val inflow get() = mainInflow
 
-    override fun loads(s: RigidBodyState, rotorSpeed: Double, pitches: Helicopter.BladePitches, groundEffect: Double): MainRotorLoads {
-        val vHub = s.velocityBody + (s.angularVelocity cross hub)
+    override fun loads(s: RigidBodyState, rotorSpeed: Double, pitches: Helicopter.BladePitches, groundEffect: Double, air: HubAir): MainRotorLoads {
+        val vHub = s.velocityBody + (s.angularVelocity cross hub) - air.wind
         val out = disc.evaluate(
-            RotorDisc.Input(pitches.collective, vHub.z, DMath.hypot(vHub.x, vHub.y), rotorSpeed, mainInflow, groundEffect),
+            RotorDisc.Input(pitches.collective, vHub.z, DMath.hypot(vHub.x, vHub.y), rotorSpeed, mainInflow, groundEffect, air.density),
         )
         val thrust = out.thrust
         val force = Vec3(
@@ -100,6 +109,7 @@ class FlappingDiscRotor(private val params: MainRotorParams) : MainRotor {
         pitches: Helicopter.BladePitches,
         specificForce: Vec3,
         groundEffect: Double,
+        air: HubAir,
         dt: Double,
     ) {
         val out = (start as DiscLoads).output
@@ -107,7 +117,7 @@ class FlappingDiscRotor(private val params: MainRotorParams) : MainRotor {
         mainInflow += (out.equilibriumInflow - mainInflow) * dt / disc.inflowTimeConstant(rotorSpeed, out.inflowRatio)
 
         val tau = 16.0 / (params.lockNumber * maxOf(rotorSpeed, MIN_FLAP_SPEED))
-        val v = after.velocityBody + (after.angularVelocity cross hub)
+        val v = after.velocityBody + (after.angularVelocity cross hub) - air.wind
         val tipSpeed = maxOf(rotorSpeed, MIN_FLAP_SPEED) * params.rotor.radius
         val blowback = 2.0 * (4.0 / 3.0 * pitches.collective - out.inflowRatio)
         val omega = after.angularVelocity

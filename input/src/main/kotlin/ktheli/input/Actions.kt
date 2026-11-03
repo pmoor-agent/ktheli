@@ -24,6 +24,7 @@ enum class Action(val label: String, val group: Group, val hold: Boolean = false
     PAUSE("Pause / resume", Group.SIM),
     RESET("Reset", Group.SIM),
     CONTROLS_DIALOG("Controls dialog", Group.SIM),
+    ENVIRONMENT_DIALOG("Environment dialog", Group.SIM),
     TELEMETRY("Telemetry window", Group.SIM),
     HUD("HUD", Group.SIM),
     AUTO_ZOOM("Camera auto-zoom", Group.SIM),

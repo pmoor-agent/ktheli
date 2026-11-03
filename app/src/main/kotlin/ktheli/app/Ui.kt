@@ -10,6 +10,7 @@ import imgui.flag.ImGuiWindowFlags
 import imgui.type.ImBoolean
 import ktheli.input.Action
 import ktheli.input.CalibrationSession
+import ktheli.physics.env.EnvironmentSettings
 import ktheli.physics.heli.Helicopter
 import ktheli.physics.sim.Controls
 
@@ -21,6 +22,8 @@ class UiContext(
     val telemetry: Telemetry,
     val controls: () -> Controls,
     val host: AppHost,
+    val changeEnvironment: (EnvironmentSettings) -> Unit,
+    val selectAircraft: (SimRunner.AircraftType) -> Unit,
 )
 
 /** Immediate-mode UI: call [draw] once per frame between ImGui newFrame/render. */
@@ -28,6 +31,7 @@ class Ui(private val ctx: UiContext) {
     val showHud = ImBoolean(true)
     val showTelemetry = ImBoolean(false)
     val controlsWindow = ControlsWindow(ctx.input, ctx.controls)
+    val environmentWindow = EnvironmentWindow({ ctx.runner.environment }, ctx.changeEnvironment)
     private val showDemo = ImBoolean(false)
     private var openAbout = false
 
@@ -42,6 +46,7 @@ class Ui(private val ctx: UiContext) {
         drawMenuBar()
         if (showHud.get()) drawHud()
         controlsWindow.draw(menuBarHeight)
+        environmentWindow.draw(menuBarHeight)
         if (showTelemetry.get()) drawTelemetryWindow()
         if (showDemo.get()) ImGui.showDemoWindow(showDemo)
         drawAbout()
@@ -55,6 +60,7 @@ class Ui(private val ctx: UiContext) {
             Action.FLIGHT_MODE -> ctx.input.cycleFlightMode()
             Action.THROTTLE_HOLD -> ctx.input.toggleThrottleHold()
             Action.CONTROLS_DIALOG -> controlsWindow.open.toggle()
+            Action.ENVIRONMENT_DIALOG -> environmentWindow.open.toggle()
             Action.TELEMETRY -> showTelemetry.toggle()
             Action.HUD -> showHud.toggle()
             Action.AUTO_ZOOM -> ctx.view.autoZoom = !ctx.view.autoZoom
@@ -87,6 +93,7 @@ class Ui(private val ctx: UiContext) {
         if (Gui.beginMenu("Sim")) {
             actionItem(if (ctx.runner.paused) "Resume" else "Pause", Action.PAUSE)
             actionItem("Reset", Action.RESET)
+            actionItem("Environment...", Action.ENVIRONMENT_DIALOG, environmentWindow.open.get())
             ImGui.separator()
             actionItem("Throttle hold", Action.THROTTLE_HOLD, ctx.input.throttleHold)
             helicopter?.let { heli ->
@@ -106,7 +113,7 @@ class Ui(private val ctx: UiContext) {
         if (Gui.beginMenu("Aircraft")) {
             SimRunner.AircraftType.entries.forEach { type ->
                 if (Gui.menuItem(type.label, "", type == ctx.runner.aircraftType)) {
-                    ctx.runner.select(type)
+                    ctx.selectAircraft(type)
                     reset()
                 }
             }
@@ -165,6 +172,12 @@ class Ui(private val ctx: UiContext) {
                     val key = ctx.input.keyFor(Action.THROTTLE_HOLD)?.label()?.let { " - $it to release" }.orEmpty()
                     Gui.textColored(1f, 0.5f, 0.2f, 1f, "THROTTLE HOLD$key")
                 }
+            }
+            val wind = ctx.runner.environment.wind
+            if (wind.speed > 0.0) {
+                val here = sim.environment.windAt(body.position).length()
+                Gui.text("Wind %.1f m/s from %s (%03.0f)   at heli %.1f m/s".format(
+                    wind.speed, EnvironmentWindow.compass(wind.fromDegrees), wind.fromDegrees, here))
             }
             if (ctx.runner.paused) Gui.textColored(1f, 0.8f, 0.2f, 1f, "PAUSED")
             modePrompt()?.let { Gui.textColored(1f, 0.8f, 0.2f, 1f, it) }

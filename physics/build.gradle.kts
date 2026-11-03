@@ -21,7 +21,7 @@ val checkDeterminism = tasks.register("checkDeterminism") {
             Regex("""import\s+kotlin\.math\.\*""") to "wildcard kotlin.math import (use DMath)",
             Regex("""import\s+kotlin\.math\.($transcendental)\b""") to "kotlin.math transcendental (use DMath)",
             Regex("""(?<!Strict)\bMath\.($transcendental|random)\b""") to "java.lang.Math transcendental (use DMath)",
-            Regex("""\.pow\(""") to "Double.pow (use DMath.pow)",
+            Regex("""(?<!DMath)\.pow\(""") to "Double.pow (use DMath.pow)",
             Regex("""System\.(currentTimeMillis|nanoTime)""") to "wall clock",
             Regex("""\b(java\.util\.Random|ThreadLocalRandom|SecureRandom|kotlin\.random)\b""") to "unseeded/unspecified RNG (use Pcg32)",
             Regex("""\b(Thread|Executors|coroutines)\b""") to "concurrency",

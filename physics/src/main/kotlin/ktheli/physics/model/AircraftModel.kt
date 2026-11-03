@@ -1,6 +1,7 @@
 package ktheli.physics.model
 
 import ktheli.physics.body.RigidBodyState
+import ktheli.physics.env.Environment
 import ktheli.physics.sim.Controls
 import ktheli.physics.sim.StateHash
 
@@ -9,7 +10,7 @@ class Gauge(val group: String, val name: String, val unit: String, val read: () 
 
 /**
  * A simulated aircraft. Implementations own all of their state (rigid body plus any internal states
- * such as rotor speed or inflow) and must advance it as a pure function of (state, controls, dt).
+ * such as rotor speed or inflow) and must advance it as a pure function of (state, controls, environment, dt).
  */
 interface AircraftModel {
     val body: RigidBodyState
@@ -17,7 +18,8 @@ interface AircraftModel {
     /** Values worth plotting; read-only views of the model's state. */
     val gauges: List<Gauge> get() = emptyList()
 
-    fun step(controls: Controls, dt: Double)
+    /** Advances one tick; [environment] has already been stepped for this tick (sample it with `windAt`). */
+    fun step(controls: Controls, environment: Environment, dt: Double)
 
     /** Folds all internal state into [hash], for determinism checks. */
     fun hashInto(hash: StateHash)

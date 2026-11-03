@@ -77,7 +77,8 @@ class KtheliApp : ApplicationAdapter() {
         val rotor = (core.runner.sim.aircraft as? Helicopter)?.let {
             Scene.RotorView((it.rotorRpm / 2500.0).toFloat(), it.mainRotor.tiltBack, it.mainRotor.tiltRight)
         } ?: Scene.RotorView(1f)
-        scene.render(core.runner.renderState(), rotor, 0, 0, bw, (bh - menuPixels).coerceAtLeast(1))
+        val sockWind = core.runner.sim.environment.windAt(scene.windsockTop)
+        scene.render(core.runner.renderState(), rotor, sockWind, 0, 0, bw, (bh - menuPixels).coerceAtLeast(1))
         Gdx.gl.glViewport(0, 0, bw, bh)
 
         imgui.endFrame()

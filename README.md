@@ -44,6 +44,11 @@ main rotor (thrust, flapping, hub moments) + tail rotor + fuselage + fin + skids
   (`SensorReadings`: rates, specific force, rpm). `FlybarlessController` runs rate loops with feed-forward
   and a cyclic ring on a 120° CCPM swashplate; `HeadingHoldGyro` (AVCS-style, gain sign selects heading
   hold vs. rate mode, collective precomp) and `RateGyro` implement `TailGyro`.
+- **Environment** (`physics/.../env`): ISA air density from temperature and elevation; wind = power-law mean
+  profile + Dryden turbulence (MIL-F-8785C low altitude, seeded, shaped by first/second-order filters) + random
+  "1−cosine" gusts. Turbulence is a frozen field carried past the aircraft, so the tail feels a gust slightly
+  after the rotor. Every part (rotor hub, tail rotor, fin, fuselage) computes its airspeed against the local wind.
+  Environment settings are simulation inputs, like the controls.
 - **Airframe** parameters live in `Airframes.class450`; numbers in the range of a T-Rex 450 class machine.
 - Known limits: vertical descent through the vortex-ring/turbulent-wake region uses plain momentum theory
   (needs the empirical inflow model planned with VRS); no dynamic stall, blade lag or elastic blades.
@@ -82,6 +87,10 @@ and a heading-hold tail gyro (the *Aircraft* menu also offers the simpler disc-r
 
 Sticks command rotation rates, as with any flybarless unit: centered sticks hold the current attitude.
 
+**Wind and weather:** *Sim → Environment...* (`F4`) sets wind speed and direction, turbulence, gusts and wind
+shear, plus temperature and field elevation (air density). Presets range from *Calm* to *Gusty* and *High & hot*.
+The windsock left of the field and the HUD show the wind; settings persist in `~/.config/ktheli/settings.json`.
+
 ## User interface
 
 The window has a menu bar (Dear ImGui via [imgui-java](https://github.com/SpaiR/imgui-java)) above the 3D view:
@@ -117,7 +126,7 @@ Window layout persists in `~/.config/ktheli/imgui.ini`; bindings and calibration
 | `H` | Throttle hold (toggle) |
 | `F` | Flight mode (cycle) |
 | `P` / `R` | Pause / reset |
-| `F1` / `F2` / `F3` | Controls dialog / telemetry / HUD |
+| `F1` / `F2` / `F3` / `F4` | Controls dialog / telemetry / HUD / environment |
 | `Z` | Camera auto-zoom |
 | `F12` | Save a screenshot to the working directory |
 | `Tab` | Next joystick |
@@ -167,5 +176,5 @@ fun `rebinding a key`() = uiTest { ui ->
 3. ✅ Blade-element rotor (360° airfoil), per-blade flapping, dynamic and skewed inflow, ground effect
 4. ✅ FBL controller, swashplate mixing, TX curves/expo, flight modes, throttle hold (done with Phase 2);
    still open: dual rates, per-mode tuning UI
-5. Wind, Dryden turbulence, gusts, vortex ring state, fuselage/fin aero
+5. ✅ Wind (shear, Dryden turbulence, gusts), air density; still open: vortex ring state
 6. Sound, replays, telemetry plots, crash physics, multiple airframes

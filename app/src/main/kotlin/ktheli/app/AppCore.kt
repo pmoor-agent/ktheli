@@ -2,6 +2,7 @@ package ktheli.app
 
 import com.badlogic.gdx.Input.Keys
 import ktheli.input.ProfileStore
+import ktheli.physics.env.EnvironmentSettings
 import ktheli.physics.sim.Controls
 
 /**
@@ -15,14 +16,32 @@ class AppCore(
     private val keyboard: KeyboardState,
     host: AppHost,
     store: ProfileStore = ProfileStore(),
+    private val settingsStore: SettingsStore = SettingsStore(),
 ) {
-    val runner = SimRunner()
+    private var settings = settingsStore.load()
+    val runner = SimRunner(settings.aircraftType, settings.environment.toSettings())
     val input = InputController(store, joysticks, keyboard)
     val telemetry = Telemetry()
     val view = ViewSettings()
     var controls: Controls = Controls.NEUTRAL
         private set
-    val ui = Ui(UiContext(runner, input, view, telemetry, { controls }, host))
+    val ui = Ui(UiContext(runner, input, view, telemetry, { controls }, host, ::changeEnvironment, ::selectAircraft))
+
+    /** Applies (immediately, as a simulation input) and remembers new environment settings. */
+    fun changeEnvironment(environment: EnvironmentSettings) {
+        runner.environment = environment
+        save(settings.copy(environment = EnvironmentDto.of(environment)))
+    }
+
+    fun selectAircraft(type: SimRunner.AircraftType) {
+        runner.select(type)
+        save(settings.copy(aircraft = type.name))
+    }
+
+    private fun save(newSettings: AppSettings) {
+        settings = newSettings
+        runCatching { settingsStore.save(newSettings) }.onFailure { input.showStatus("Could not save settings: ${it.message}") }
+    }
 
     fun update(frameSeconds: Double, keyboardEnabled: Boolean) {
         val frame = input.update(frameSeconds, keyboardEnabled)
