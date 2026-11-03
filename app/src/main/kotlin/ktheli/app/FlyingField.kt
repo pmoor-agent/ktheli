@@ -1,5 +1,7 @@
 package ktheli.app
 
+import ktheli.physics.env.Obstacle
+import ktheli.physics.env.Obstacles
 import ktheli.physics.math.Vec3
 import java.util.Random
 import kotlin.math.PI
@@ -7,9 +9,9 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 /**
- * A place to fly: where the pilot stands, where the model starts, and what the field looks like. Purely
- * presentation and placement; the physics ground is the flat plane z = 0 everywhere. Positions are world NED
- * (x north, y east, z down) with the origin at the field's centre.
+ * A place to fly: where the pilot stands, where the model starts, and what the field looks like. The physics
+ * ground is the flat plane z = 0 everywhere; trees and the windsock pole are [obstacles] the model can crash
+ * into. Positions are world NED (x north, y east, z down) with the origin at the field's centre.
  */
 class FlyingField(
     val id: String,
@@ -25,6 +27,28 @@ class FlyingField(
     val pads: List<Pad> = emptyList(),
     val trees: TreeLine? = null,
 ) {
+    /** Rough crash shapes matching what [FieldRenderer] draws: a trunk and a crown per tree, the windsock pole. */
+    val obstacles: Obstacles by lazy {
+        val list = ArrayList<Obstacle>()
+        list += Obstacle("the windsock", windsock.x, windsock.y, 0.04, 0.0, FieldRenderer.WINDSOCK_HEIGHT)
+        trees?.trees()?.forEach { t ->
+            val x = t.position.x
+            val y = t.position.y
+            val h = t.height
+            when (t.kind) {
+                TreeLine.Kind.CONIFER -> {
+                    list += Obstacle("a tree", x, y, 0.2, 0.0, 0.15 * h)
+                    list += Obstacle("a tree", x, y, 0.13 * h, 0.15 * h, 0.9 * h) // a cone, as a slimmer cylinder
+                }
+                TreeLine.Kind.LEAFY -> {
+                    list += Obstacle("a tree", x, y, 0.25, 0.0, 0.45 * h)
+                    list += Obstacle("a tree", x, y, 0.27 * h, 0.37 * h, 0.93 * h) // the round crown
+                }
+            }
+        }
+        Obstacles(list)
+    }
+
     override fun toString() = id
 }
 

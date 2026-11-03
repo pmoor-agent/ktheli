@@ -21,10 +21,15 @@ data class AppSettings(
     /** [FlyingField.id] of the selected field. */
     val field: String = FlyingFields.DEFAULT.id,
     val sound: SoundSettings = SoundSettings(),
+    val crash: CrashSettings = CrashSettings(),
 ) {
     val model: HelicopterModel get() = HelicopterModels.byId(aircraft) ?: HelicopterModels.DEFAULT
     val flyingField: FlyingField get() = FlyingFields.byId(this.field) ?: FlyingFields.DEFAULT
 }
+
+/** What happens after a crash: reset automatically after [delaySeconds], or wait for the reset key. */
+@Serializable
+data class CrashSettings(val autoReset: Boolean = true, val delaySeconds: Double = 3.0)
 
 /** Serializable mirror of [EnvironmentSettings] (the physics module stays free of serialization). */
 @Serializable

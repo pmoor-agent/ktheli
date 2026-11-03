@@ -86,6 +86,20 @@ class HeliSynthTest {
         assertTrue(rms(left) > 0.005 && rms(right) > 0.005, "${rms(left)} ${rms(right)}")
     }
 
+    @Test
+    fun `a crash is a loud bang that dies away`() {
+        val synth = HeliSynth(rate)
+        val quiet = SoundParams(volume = 0.8)
+        val block = FloatArray(2 * rate / 10)
+        synth.render(quiet, block) // first sight of impacts = 0: nothing to play
+        synth.render(quiet.copy(impacts = 1, impactLevel = 1.0), block)
+        val bang = rms(DoubleArray(block.size) { block[it].toDouble() })
+        repeat(20) { synth.render(quiet.copy(impacts = 1, impactLevel = 1.0), block) } // 2 s later
+        val later = rms(DoubleArray(block.size) { block[it].toDouble() })
+        assertTrue(bang > 0.1, "bang $bang")
+        assertTrue(later < bang / 20, "dies away: $later")
+    }
+
     // --- helpers ---------------------------------------------------------------------------------
 
     private val rate = 44_100

@@ -20,6 +20,7 @@ import kotlin.math.tanh
  * - **Tail rotor:** softer, faster pulses: a buzz.
  * - **Motor:** electrical fundamental with harmonics; **gears:** a faint tooth-mesh tone.
  * - **Wind** at the listener: low rumbling noise with slow gusts.
+ * - **Crash:** a crunch, a thud and a rattle whenever [SoundParams.impacts] goes up.
  *
  * The model's sound is shifted by the Doppler factor, low-passed for air absorption, scaled for distance and
  * panned; everything goes through a soft limiter. All parameters glide over ~[GLIDE_SECONDS] so frame-rate
@@ -69,10 +70,23 @@ class HeliSynth(val sampleRate: Int = 44_100, seed: Long = 0x5EED) {
 
     private var noise = seed or 1L
 
+    // Crash impact: an event, not a level, so it doesn't glide.
+    private var seenImpacts = -1
+    private var impact = 0.0 // current envelope
+    private var impactAge = 0.0 // seconds
+    private var crunchLow = 0.0
+    private var crunchBand = 0.0
+    private var thudPhase = 0.0
+
     /** Renders [frames] stereo frames into [out] (`out[2i]` left, `out[2i+1]` right), gliding towards [target]. */
     fun render(target: SoundParams, out: FloatArray, frames: Int = out.size / 2) {
         require(out.size >= 2 * frames)
         val nyquist = 0.45 * sampleRate
+        if (seenImpacts >= 0 && target.impacts > seenImpacts) {
+            impact = target.impactLevel.coerceIn(0.0, 1.0)
+            impactAge = 0.0
+        }
+        seenImpacts = target.impacts
         for (i in 0 until frames) {
             glideTowards(target)
 
@@ -122,9 +136,25 @@ class HeliSynth(val sampleRate: Int = 44_100, seed: Long = 0x5EED) {
             gearPhase = wrap(gearPhase + gf / sampleRate)
             val gear = if (gf < nyquist) gearLevel * (0.85 + 0.15 * g) * sin(TWO_PI * gearPhase) else 0.0
 
+            // Crash: a crunch (broad noise), a falling thud and a longer rattle of loose parts.
+            var crash = 0.0
+            if (impact > 1e-4) {
+                impactAge += 1.0 / sampleRate
+                val fc = 2.0 * sin(PI * 700.0 / sampleRate)
+                crunchLow += fc * crunchBand
+                crunchBand += fc * (white() - crunchLow - 1.4 * crunchBand)
+                thudPhase = wrap(thudPhase + (40.0 + 60.0 * exp(-impactAge / 0.05)) / sampleRate)
+                crash = impact * (
+                    CRUNCH_GAIN * crunchBand * exp(-impactAge / 0.12) +
+                        0.9 * sin(TWO_PI * thudPhase) * exp(-impactAge / 0.15) +
+                        0.15 * white() * exp(-impactAge / 0.6)
+                    )
+                if (impactAge > 3.0) impact = 0.0
+            }
+
             // Air absorption, then distance and panning (equal power, never fully one-sided).
             val a = 1.0 - exp(-TWO_PI * minOf(absorptionHz, nyquist) / sampleRate)
-            absorbed += a * (rotor + swish + wash + tail + motor + gear - absorbed)
+            absorbed += a * (rotor + swish + wash + tail + motor + gear + crash - absorbed)
             val angle = (1.0 + PAN_WIDTH * pan) * PI / 4.0
             val model = absorbed * distanceGain * MODEL_GAIN
             var left = model * cos(angle) * SQRT2
@@ -198,6 +228,7 @@ class HeliSynth(val sampleRate: Int = 44_100, seed: Long = 0x5EED) {
         private const val TAIL_WIDTH = 0.14
         private const val PAN_WIDTH = 0.7
         private const val MODEL_GAIN = 2.0
+        private const val CRUNCH_GAIN = 3.0
         private const val GUST_RATE = 2e-5
         private const val WIND_LOWPASS = 0.03 // ~210 Hz at 44.1 kHz
         private const val WIND_GAIN = 6.0 // the low-pass takes most of the noise's energy away
