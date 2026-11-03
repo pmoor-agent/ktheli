@@ -31,8 +31,10 @@ import kotlin.math.sin
 class FieldRenderer(val field: FlyingField) : Disposable {
     private val models = ArrayList<Model>()
     private val textures = ArrayList<Texture>()
-    private val opaque = ArrayList<ModelInstance>()
-    private val unlit = ArrayList<ModelInstance>()
+    // The ground (grass, grid, pads) and what stands on it are drawn separately: see [renderGround].
+    private val ground = ArrayList<ModelInstance>()
+    private val groundUnlit = ArrayList<ModelInstance>()
+    private val objects = ArrayList<ModelInstance>()
     private val windsock: ModelInstance
     private val sockDirection = Vector3(0f, -1f, 0f)
     private val sockRotation = Quaternion()
@@ -47,14 +49,14 @@ class FieldRenderer(val field: FlyingField) : Disposable {
         for (pad in field.pads) buildPad(mb, pad)
         field.trees?.let { buildTrees(mb, it) }
 
-        opaque += ModelInstance(
+        objects += ModelInstance(
             mb.createBox(0.05f, WINDSOCK_HEIGHT.toFloat(), 0.05f, Material(ColorAttribute.createDiffuse(Color.LIGHT_GRAY)), lit).keep(),
         ).apply { transform.setToTranslation(field.windsock.toGdx().add(0f, WINDSOCK_HEIGHT.toFloat() / 2, 0f)) }
         // A cone along +Y with its tip at +Y: the wide end is the sock's mouth at the pole.
         windsock = ModelInstance(
             mb.createCone(0.3f, SOCK_LENGTH, 0.3f, 16, Material(ColorAttribute.createDiffuse(Color(1f, 0.45f, 0.05f, 1f)), IntAttribute.createCullFace(GL20.GL_NONE)), lit).keep(),
         )
-        opaque += windsock
+        objects += windsock
     }
 
     private fun Model.keep() = also { models += it }
@@ -64,7 +66,7 @@ class FieldRenderer(val field: FlyingField) : Disposable {
         val half = (g.size / 2).toFloat()
         val y = GROUND_Y
         if (!g.textured) {
-            opaque += ModelInstance(
+            ground += ModelInstance(
                 mb.createBox(g.size.toFloat(), 0.1f, g.size.toFloat(), Material(ColorAttribute.createDiffuse(Color(0.36f, 0.55f, 0.3f, 1f))), lit).keep(),
             ).apply { transform.setToTranslation(0f, y - 0.05f, 0f) }
         } else {
@@ -91,10 +93,10 @@ class FieldRenderer(val field: FlyingField) : Disposable {
                 mb.part("stripe$i", GL20.GL_TRIANGLES, attrs, material)
                     .rect(x0, y, half, x1, y, half, x1, y, -half, x0, y, -half, 0f, 1f, 0f)
             }
-            opaque += ModelInstance(mb.end().keep())
+            ground += ModelInstance(mb.end().keep())
         }
         if (g.grid) {
-            unlit += ModelInstance(
+            groundUnlit += ModelInstance(
                 mb.createLineGrid(80, 80, 2.5f, 2.5f, Material(ColorAttribute.createDiffuse(Color(0.27f, 0.42f, 0.23f, 1f))), Usage.Position.toLong()).keep(),
             )
         }
@@ -113,7 +115,7 @@ class FieldRenderer(val field: FlyingField) : Disposable {
         mb.part("pad", GL20.GL_TRIANGLES, lit or Usage.TextureCoordinates.toLong(), material).rect(
             c.x - r, PAD_Y, c.z + r, c.x + r, PAD_Y, c.z + r, c.x + r, PAD_Y, c.z - r, c.x - r, PAD_Y, c.z - r, 0f, 1f, 0f,
         )
-        opaque += ModelInstance(mb.end().keep())
+        ground += ModelInstance(mb.end().keep())
     }
 
     /** All trees in a few merged meshes with per-vertex colours: a handful of draw calls for hundreds of trees. */
@@ -155,7 +157,7 @@ class FieldRenderer(val field: FlyingField) : Disposable {
             }
         }
         part?.setVertexTransformationEnabled(false)
-        opaque += ModelInstance(mb.end().keep())
+        objects += ModelInstance(mb.end().keep())
     }
 
     /** Points the sock downwind ([windAtSock], world NED); it hangs down in calm air and lifts at ~8 m/s. */
@@ -170,9 +172,19 @@ class FieldRenderer(val field: FlyingField) : Disposable {
         windsock.transform.set(windsockTop.toGdx().add(sockDirection.cpy().scl(SOCK_LENGTH / 2)), sockRotation)
     }
 
-    fun render(batch: ModelBatch, environment: Environment) {
-        for (i in opaque) batch.render(i, environment)
-        for (i in unlit) batch.render(i)
+    /**
+     * The flat ground: grass, grid and pads. ModelBatch draws opaque before blended renderables, so the pads
+     * (blended for their round edge) always land on the grass. Flush the batch before drawing anything that
+     * lies on top (the shadow), so distance sorting can't put it underneath.
+     */
+    fun renderGround(batch: ModelBatch, environment: Environment) {
+        for (i in ground) batch.render(i, environment)
+        for (i in groundUnlit) batch.render(i)
+    }
+
+    /** Everything standing on the ground: trees and the windsock. */
+    fun renderObjects(batch: ModelBatch, environment: Environment) {
+        for (i in objects) batch.render(i, environment)
     }
 
     override fun dispose() {
