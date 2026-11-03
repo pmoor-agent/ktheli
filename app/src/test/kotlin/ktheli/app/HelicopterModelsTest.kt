@@ -49,15 +49,15 @@ class HelicopterModelsTest {
     }
 
     @Test
-    fun `rotors look sharp up to 600 rpm and blurred from 1000, earlier only on slow displays`() {
+    fun `rotors look sharp up to 300 rpm and blurred from 700, earlier only on slow displays`() {
         val blur = RotorBlur()
         assertEquals(0.0, blur.blur(0.0, 60.0))
         for (fps in listOf(45.0, 60.0, 144.0)) {
-            assertEquals(0.0, blur.blur(590.0, fps), "sharp blades below 600 rpm at $fps fps")
-            assertTrue(blur.blur(800.0, fps) in 0.4..0.6, "cross-fading in between at $fps fps")
-            assertEquals(1.0, blur.blur(1020.0, fps), "blurred above 1000 rpm at $fps fps")
+            assertEquals(0.0, blur.blur(290.0, fps), "sharp blades below 300 rpm at $fps fps")
+            assertTrue(blur.blur(500.0, fps) in 0.4..0.6, "cross-fading in between at $fps fps")
+            assertEquals(1.0, blur.blur(720.0, fps), "blurred above 700 rpm at $fps fps")
         }
-        assertTrue(blur.blur(300.0, 20.0) > 0.0, "at 20 fps, 300 rpm (90° per frame) would alias: start fading")
+        assertTrue(blur.blur(295.0, 20.0) > 0.0, "at 20 fps, 295 rpm (~89° per frame) would alias: start fading")
         assertEquals(1.0, blur.blur(2700.0, 20.0))
         assertEquals(1.0, blur.bladeOpacity(0.0))
         assertEquals(0.0, blur.discOpacity(0.0))

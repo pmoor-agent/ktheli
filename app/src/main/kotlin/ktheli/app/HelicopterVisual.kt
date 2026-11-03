@@ -10,8 +10,8 @@ import ktheli.physics.math.Vec3
  * ("wagon wheel"); [maxSharpDegreesPerFrame] and [maxPartialDegreesPerFrame] keep below that.
  */
 data class RotorBlur(
-    val sharpUntilRpm: Double = 600.0,
-    val blurredFromRpm: Double = 1000.0,
+    val sharpUntilRpm: Double = 300.0,
+    val blurredFromRpm: Double = 700.0,
     val maxSharpDegreesPerFrame: Double = 85.0,
     val maxPartialDegreesPerFrame: Double = 170.0,
     val bladeOpacityBlurred: Double = 0.1,
