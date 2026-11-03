@@ -22,11 +22,7 @@ class ImGuiLayer(iniFile: Path) : Disposable {
         ImGui.createContext()
         ImPlot.createContext()
         ImGui.getIO().setIniFilename(iniFile.toString()) // window positions persist across runs
-        ImGui.styleColorsClassic()
-        ImGui.getStyle().apply {
-            windowRounding = 0f
-            frameRounding = 0f // the built-in pixel font stays crisp only at its native size
-        }
+        applyKtheliStyle()
         glfw.init((Gdx.graphics as Lwjgl3Graphics).window.windowHandle, true)
         gl3.init()
     }
@@ -50,5 +46,14 @@ class ImGuiLayer(iniFile: Path) : Disposable {
         glfw.shutdown()
         ImPlot.destroyContext()
         ImGui.destroyContext()
+    }
+}
+
+/** The app's look; shared with the headless test driver so UI snapshots match. */
+fun applyKtheliStyle() {
+    ImGui.styleColorsClassic()
+    ImGui.getStyle().apply {
+        windowRounding = 0f
+        frameRounding = 0f // the built-in pixel font stays crisp only at its native size
     }
 }

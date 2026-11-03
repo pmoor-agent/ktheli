@@ -31,7 +31,7 @@ import kotlin.math.max
  */
 fun Vec3.toGdx() = Vector3(y.toFloat(), (-z).toFloat(), (-x).toFloat())
 
-class Scene : Disposable {
+class Scene(private val view: ViewSettings) : Disposable {
     val camera = PerspectiveCamera(60f, 1f, 1f).apply {
         position.set(PILOT_EYE)
         near = 0.1f
@@ -104,9 +104,6 @@ class Scene : Disposable {
         IntAttribute.createCullFace(GL20.GL_NONE),
     )
 
-    /** When off, the camera keeps a fixed field of view instead of zooming with distance. */
-    var autoZoom = true
-
     /** Renders into the given back-buffer pixel rectangle. */
     fun render(state: RigidBodyState, x: Int, y: Int, width: Int, height: Int) {
         Gdx.gl.glViewport(x, y, width, height)
@@ -122,7 +119,7 @@ class Scene : Disposable {
 
         // Pilot's-eye camera: fixed position, tracks the heli, zooms so it keeps a usable apparent size.
         val distance = p.dst(camera.position)
-        camera.fieldOfView = if (autoZoom) {
+        camera.fieldOfView = if (view.autoZoom) {
             Math.toDegrees(2.0 * atan(VISIBLE_HALF_WIDTH / max(distance, 0.5f))).toFloat().coerceIn(12f, 65f)
         } else {
             FIXED_FOV

@@ -26,3 +26,24 @@ application {
     mainClass = "ktheli.app.MainKt"
     applicationDefaultJvmArgs = listOf("--enable-native-access=ALL-UNNAMED", "--sun-misc-unsafe-memory-access=allow")
 }
+
+/** ImGui's built-in font only covers ASCII; anything else renders as '?'. */
+val checkUiAscii = tasks.register("checkUiAscii") {
+    group = "verification"
+    description = "Fails on non-ASCII characters in string literals of the app module."
+    val sources = fileTree("src/main/kotlin")
+    val root = projectDir
+    inputs.files(sources)
+    doLast {
+        val literal = Regex(""""(?:[^"\\]|\\.)*"""")
+        val violations = sources.files.flatMap { file ->
+            file.readLines().withIndex().filter { (_, line) ->
+                !line.trimStart().startsWith("//") && !line.trimStart().startsWith("*") &&
+                    literal.findAll(line).any { m -> m.value.any { it.code > 127 } }
+            }.map { (i, line) -> "${file.relativeTo(root)}:${i + 1}: ${line.trim()}" }
+        }
+        if (violations.isNotEmpty()) throw GradleException("Non-ASCII UI strings:\n" + violations.joinToString("\n"))
+    }
+}
+
+tasks.named("check") { dependsOn(checkUiAscii) }
