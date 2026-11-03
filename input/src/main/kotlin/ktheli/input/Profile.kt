@@ -80,10 +80,13 @@ class ProfileStore(private val path: Path = defaultPath()) {
     }
 
     companion object {
-        fun defaultPath(): Path {
+        fun defaultPath(): Path = configDir().resolve("input.json")
+
+        /** `$XDG_CONFIG_HOME/ktheli`, defaulting to `~/.config/ktheli`. */
+        fun configDir(): Path {
             val base = System.getenv("XDG_CONFIG_HOME")?.let { Paths.get(it) }
                 ?: Paths.get(System.getProperty("user.home"), ".config")
-            return base.resolve("ktheli").resolve("input.json")
+            return base.resolve("ktheli")
         }
     }
 }

@@ -36,23 +36,39 @@ World frame NED (x north, y east, z down), body frame FRD (x forward, y right, z
 Attitude quaternions rotate body → world. The renderer converts to libGDX's Y-up only at draw time
 (`Vec3.toGdx()`). See `physics/.../Frames.kt`.
 
-## Controls
+## User interface
+
+The window has a menu bar (Dear ImGui via [imgui-java](https://github.com/SpaiR/imgui-java)) above the 3D view:
+
+- **Sim**: pause/resume, reset, quit
+- **Aircraft**: model selection (toy heli for now)
+- **Input**: *Input setup…* (device, channel assignment, reverse/centered, calibration, raw axes) and device selection
+- **View**: HUD, *Telemetry* (live ImPlot charts), camera auto-zoom, screenshot
+- **Help**: keyboard reference, ImGui demo window, about
+
+Window layout persists in `~/.config/ktheli/imgui.ini`; input profiles are stored per device GUID in
+`~/.config/ktheli/input.json`.
+
+### Keyboard
 
 | Key | Action |
 |-----|--------|
-| `C` | Calibrate: center sticks, press C, move all sticks to their extremes, press C again |
+| `P` / `R` | Pause / reset |
+| `F1` / `F2` | Input setup / telemetry window |
+| `F12` | Save a screenshot to the working directory |
+| `C` | Start / finish calibration (center sticks first, then sweep all extremes) |
 | `1`–`4` | Assign collective / roll / pitch / yaw: press, then move that stick in the positive direction |
 | `Tab` | Next joystick |
-| `R` | Reset |
-| `F1` | Toggle input overlay |
-| `F12` | Save a screenshot to the working directory |
+| `Esc` | Cancel calibration / assignment |
 | `W/S`, `A/D`, arrows | Keyboard fallback when no joystick is connected (`K` zeroes collective) |
+| `Ctrl+Q` | Quit |
 
-Profiles are stored per device GUID in `~/.config/ktheli/input.json`.
-
-Environment variables for development:
+### Development hooks (environment variables)
 
 - `KTHELI_SCREENSHOT=out.png` (+ optional `KTHELI_SCREENSHOT_AFTER=seconds`, default 2): capture one frame, then exit.
+- `KTHELI_SHOW=input,telemetry`: open those windows at startup.
+- `KTHELI_FAKE_JOYSTICK=1`: add a synthetic joystick with sweeping axes, for working on input UI without hardware.
+  Combine with `XDG_CONFIG_HOME=$(mktemp -d)` to keep it out of your real input profiles.
 - `KTHELI_NO_VSYNC=1`: disable vsync (capped at 240 fps), for compositors that throttle vsync'd windows.
 
 ## Roadmap
