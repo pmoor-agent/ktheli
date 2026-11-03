@@ -107,6 +107,11 @@ and a heading-hold tail gyro (the *Aircraft* menu also offers the simpler disc-r
 
 Sticks command rotation rates, as with any flybarless unit: centered sticks hold the current attitude.
 
+**Camera:** *View* switches between *Pilot's eye* (standing at the field, like a real RC pilot) and *Follow*
+(flowing along behind the model at a fixed distance); `V` cycles them. *View → Camera settings...* (`F5`) has
+auto-zoom and field of view for the pilot's eye, and distance, height, smoothing and field of view for the follow
+camera (`Z` still toggles auto-zoom). Camera settings persist with the others.
+
 **Wind and weather:** *Sim → Environment...* (`F4`) sets wind speed and direction, turbulence, gusts and wind
 shear, plus temperature and field elevation (air density). Presets range from *Calm* to *Gusty* and *High & hot*.
 The windsock left of the field and the HUD show the wind; settings persist in `~/.config/ktheli/settings.json`.
@@ -147,7 +152,7 @@ Window layout persists in `~/.config/ktheli/imgui.ini`; bindings and calibration
 | `F` | Flight mode (cycle) |
 | `P` / `R` | Pause / reset |
 | `F1` / `F2` / `F3` / `F4` | Controls dialog / telemetry / HUD / environment |
-| `Z` | Camera auto-zoom |
+| `V` / `F5` / `Z` | Camera view (cycle) / camera settings / auto-zoom |
 | `F12` | Save a screenshot to the working directory |
 | `Tab` | Next joystick |
 | `Ctrl+Q` | Quit |

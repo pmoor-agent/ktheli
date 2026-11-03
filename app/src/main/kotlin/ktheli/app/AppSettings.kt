@@ -16,6 +16,7 @@ data class AppSettings(
     /** [HelicopterModel.id] of the selected model. */
     val aircraft: String = HelicopterModels.DEFAULT.id,
     val environment: EnvironmentDto = EnvironmentDto(),
+    val camera: CameraSettings = CameraSettings(),
 ) {
     val model: HelicopterModel get() = HelicopterModels.byId(aircraft) ?: HelicopterModels.DEFAULT
 }

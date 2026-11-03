@@ -19,11 +19,8 @@ interface AppHost {
     fun requestScreenshot()
 }
 
-/** View options shared by the UI (which toggles them) and the renderer (which reads them). */
-class ViewSettings {
-    /** When off, the camera keeps a fixed field of view instead of zooming with distance. */
-    var autoZoom = true
-}
+/** View options shared by the UI (which changes them) and the renderer (which reads them). */
+class ViewSettings(var camera: CameraSettings = CameraSettings())
 
 object GdxKeyboard : KeyboardState {
     override fun isPressed(keycode: Int) = Gdx.input.isKeyPressed(keycode)
