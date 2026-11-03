@@ -112,7 +112,7 @@ class UiDriver(
             store = ProfileStore(this.configDir.resolve("input.json")),
             settingsStore = SettingsStore(this.configDir.resolve("settings.json")),
         )
-        if (gl) scene = Scene(core.view)
+        if (gl) scene = Scene(core.session.view)
         frame()
     }
 

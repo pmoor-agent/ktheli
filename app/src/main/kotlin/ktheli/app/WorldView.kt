@@ -24,23 +24,23 @@ object WorldView {
         val menu = core.ui.menuBarHeight
         val scale = backHeight / logicalHeight.coerceAtLeast(1f)
         val viewHeight = (backHeight - (menu * scale).toInt()).coerceAtLeast(1)
-        scene.use(core.runner.model)
-        scene.useField(core.runner.field)
-        val crashed = core.runner.crash != null // frozen at the impact: show the blades standing still
-        val rotors = (core.runner.sim.aircraft as? Helicopter)?.let {
+        scene.use(core.session.runner.model)
+        scene.useField(core.session.runner.field)
+        val crashed = core.session.runner.crash != null // frozen at the impact: show the blades standing still
+        val rotors = (core.session.runner.sim.aircraft as? Helicopter)?.let {
             if (crashed) {
                 RotorPose(0.0, 0.0, it.mainRotor.tiltBack, it.mainRotor.tiltRight, it.mainRotor.bladeAzimuth)
             } else {
                 RotorPose(it.rotorRpm, it.tailRotorRpm, it.mainRotor.tiltBack, it.mainRotor.tiltRight, it.mainRotor.bladeAzimuth)
             }
         } ?: RotorPose(rpm = if (crashed) 0.0 else TOY_ROTOR_RPM, tailRpm = if (crashed) 0.0 else TOY_ROTOR_RPM * 4.5)
-        val sockWind = core.runner.sim.environment.windAt(scene.windsockTop)
-        val binoculars = core.view.camera.binoculars.takeIf { it.enabled }?.let { b ->
+        val sockWind = core.session.runner.sim.environment.windAt(scene.windsockTop)
+        val binoculars = core.session.view.camera.binoculars.takeIf { it.enabled }?.let { b ->
             // Same layout the UI frames, converted from logical (top-left origin) to back-buffer pixels.
             val r = Binoculars.layout(logicalWidth, logicalHeight - menu, menu, b)
             Scene.Viewport((r.x * scale).toInt(), (backHeight - (r.y + r.height) * scale).toInt(), (r.width * scale).toInt(), (r.height * scale).toInt())
         }
-        scene.render(core.runner.renderState(), rotors, sockWind, Scene.Viewport(0, 0, backWidth, viewHeight), binoculars, frameSeconds)
-        scene.pose?.let { core.listener = Listener.facing(it.position, it.target, core.listener.right) }
+        scene.render(core.session.runner.renderState(), rotors, sockWind, Scene.Viewport(0, 0, backWidth, viewHeight), binoculars, frameSeconds)
+        scene.pose?.let { core.session.listener = Listener.facing(it.position, it.target, core.session.listener.right) }
     }
 }

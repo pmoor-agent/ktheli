@@ -42,7 +42,7 @@ class HelicopterModelsTest {
         val dir = Files.createTempDirectory("ktheli-legacy")
         try {
             Files.writeString(dir.resolve("settings.json"), """{"aircraft":"HELI_450_DISC"}""")
-            UiDriver(configDir = dir).use { ui -> assertEquals(HelicopterModels.TREX_450_DISC, ui.core.runner.model) }
+            UiDriver(configDir = dir).use { ui -> assertEquals(HelicopterModels.TREX_450_DISC, ui.core.session.runner.model) }
         } finally {
             dir.toFile().deleteRecursively()
         }

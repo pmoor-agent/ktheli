@@ -128,7 +128,7 @@ class SceneRenderTest {
 
     @Test
     fun `the follow camera keeps the model framed through a flight`() = glTest(640, 360) { ui ->
-        ui.core.selectField(FlyingFields.OPEN) // plain grass: only the model counts as an object
+        ui.core.session.selectField(FlyingFields.OPEN) // plain grass: only the model counts as an object
         ui.joystick.connected = false
         ui.press(Keys.F3) // HUD off: only the scene counts
         ui.press(Keys.V) // follow camera
@@ -146,7 +146,7 @@ class SceneRenderTest {
             samples += Images.objects(ui.image(), view)
             if (i == 7) ui.snapshot(out.resolve("follow-flight.png"))
         }
-        val altitude = -ui.core.runner.sim.aircraft.body.position.z
+        val altitude = -ui.core.session.runner.sim.aircraft.body.position.z
         println("follow: altitude %.1f m, centroids %s".format(altitude, samples.map { "(%.0f,%.0f)".format(it.cx, it.cy) }))
         assertTrue(altitude > 1.0, "flying")
         for (s in samples) {

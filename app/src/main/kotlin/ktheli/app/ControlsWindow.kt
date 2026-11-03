@@ -12,7 +12,11 @@ import ktheli.input.Channel
 import ktheli.physics.sim.Controls
 
 /** The "Controls" dialog: stick channels and calibration, key/button bindings, and a live device monitor. */
-class ControlsWindow(private val input: InputController, private val controls: () -> Controls) {
+class ControlsWindow(
+    private val input: InputController,
+    private val controls: () -> Controls,
+    private val status: () -> String,
+) {
     val open = ImBoolean(false)
     private var selectTab: String? = null
 
@@ -40,9 +44,10 @@ class ControlsWindow(private val input: InputController, private val controls: (
                 ImGui.endTabBar()
                 selectTab = null
             }
-            if (input.status.isNotEmpty()) {
+            val message = status()
+            if (message.isNotEmpty()) {
                 ImGui.separator()
-                Gui.text(input.status)
+                Gui.text(message)
             }
         }
         Gui.end()

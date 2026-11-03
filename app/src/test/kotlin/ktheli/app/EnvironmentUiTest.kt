@@ -15,11 +15,11 @@ class EnvironmentUiTest {
     fun `presets change the wind immediately and the HUD shows it`() = uiTest { ui ->
         ui.press(Keys.F4)
         ui.click("Environment/Breezy")
-        assertEquals(EnvironmentSettings.BREEZY, ui.core.runner.environment)
-        assertEquals(EnvironmentSettings.BREEZY, ui.core.runner.sim.environment.settings)
+        assertEquals(EnvironmentSettings.BREEZY, ui.core.session.runner.environment)
+        assertEquals(EnvironmentSettings.BREEZY, ui.core.session.runner.sim.environment.settings)
         ui.waitForText("Wind 6.0 m/s from W (270)")
         ui.seconds(2.0)
-        val windAtHeli = ui.core.runner.sim.environment.windAt(ui.core.runner.sim.aircraft.body.position).length()
+        val windAtHeli = ui.core.session.runner.sim.environment.windAt(ui.core.session.runner.sim.aircraft.body.position).length()
         assertTrue(windAtHeli > 1.0, "the air is moving: $windAtHeli")
         ui.snapshot(Paths.get("build/ui-snapshots/08-environment.png"))
     }
@@ -43,8 +43,8 @@ class EnvironmentUiTest {
                 ui.menu("Aircraft", HelicopterModels.TREX_450_DISC.name)
             }
             UiDriver(configDir = dir).use { ui ->
-                assertEquals(EnvironmentSettings.HIGH_AND_HOT, ui.core.runner.environment)
-                assertEquals(HelicopterModels.TREX_450_DISC, ui.core.runner.model)
+                assertEquals(EnvironmentSettings.HIGH_AND_HOT, ui.core.session.runner.environment)
+                assertEquals(HelicopterModels.TREX_450_DISC, ui.core.session.runner.model)
                 ui.press(Keys.F4)
                 ui.waitForText("Air density 0.899") // ISA at 2000 m, 35 C
             }

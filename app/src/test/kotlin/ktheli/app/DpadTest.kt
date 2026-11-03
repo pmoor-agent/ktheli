@@ -40,15 +40,15 @@ class DpadTest {
         ui.click("Controls/Buttons & keys")
         ui.click("Controls/Buttons & keys/Pause / resume/btn")
         ui.pressHat(GLFW_HAT_UP)
-        assertEquals(ui.joystick.buttons.size, ui.core.input.buttonFor(Action.PAUSE)) // first virtual button
+        assertEquals(ui.joystick.buttons.size, ui.core.session.input.buttonFor(Action.PAUSE)) // first virtual button
         ui.waitForText("Pause / resume -> D-pad up")
-        assertFalse(ui.core.runner.paused)
+        assertFalse(ui.core.session.runner.paused)
 
         ui.pressHat(GLFW_HAT_UP)
-        assertTrue(ui.core.runner.paused)
+        assertTrue(ui.core.session.runner.paused)
         ui.pressHat(GLFW_HAT_UP or GLFW_HAT_RIGHT) // a diagonal includes "up"
-        assertFalse(ui.core.runner.paused)
+        assertFalse(ui.core.session.runner.paused)
         ui.pressHat(GLFW_HAT_DOWN)
-        assertFalse(ui.core.runner.paused)
+        assertFalse(ui.core.session.runner.paused)
     }
 }

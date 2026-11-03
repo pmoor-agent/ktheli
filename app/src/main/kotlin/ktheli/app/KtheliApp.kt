@@ -40,9 +40,9 @@ class KtheliApp : ApplicationAdapter() {
         Gdx.app.log("ktheli", "GL: " + Gdx.gl.glGetString(GL20.GL_RENDERER) + " / " + Gdx.gl.glGetString(GL20.GL_VERSION))
         core = AppCore(Joysticks, GdxKeyboard, host)
         gpuTimer = GpuTimer()
-        scene = Scene(core.view)
+        scene = Scene(core.session.view)
         audio = AudioOutput.open()
-        if (audio == null) core.input.showStatus("No sound output available")
+        if (audio == null) core.session.status.show("No sound output available")
         val configDir = ProfileStore.configDir().also { Files.createDirectories(it) }
         imgui = ImGuiLayer(configDir.resolve("imgui.ini"))
         // Dev hook for screenshots: KTHELI_SHOW=controls[:sticks|buttons|monitor],telemetry
@@ -88,12 +88,12 @@ class KtheliApp : ApplicationAdapter() {
         gpuTimer.end()
         core.profiler.gpu(gpuTimer.poll())
         core.profiler.endFrame(frameSeconds)
-        audio?.params = if (minimized) SoundParams.SILENT else core.soundParams()
+        audio?.params = if (minimized) SoundParams.SILENT else core.session.soundParams()
 
         elapsed += frameSeconds
         if (screenshotRequested) {
             screenshotRequested = false
-            core.input.showStatus("Saved " + saveScreenshot("ktheli-%d.png".format(System.currentTimeMillis())))
+            core.session.status.show("Saved " + saveScreenshot("ktheli-%d.png".format(System.currentTimeMillis())))
         }
         if (autoScreenshot != null && elapsed >= autoScreenshotAfter) {
             saveScreenshot(autoScreenshot)

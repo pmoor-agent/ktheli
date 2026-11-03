@@ -41,12 +41,12 @@ class FlyingFieldTest {
 
     @Test
     fun `the field menu switches fields and the model starts at the new field's start`() = uiTest { ui ->
-        assertEquals(FlyingFields.DEFAULT, ui.core.runner.field)
+        assertEquals(FlyingFields.DEFAULT, ui.core.session.runner.field)
         ui.click("Field")
         for (field in FlyingFields.ALL) ui.waitFor("Field/${field.name}")
         ui.click("Field/${FlyingFields.OPEN.name}") // the menu is already open
-        assertEquals(FlyingFields.OPEN, ui.core.runner.field)
-        val p = ui.core.runner.sim.aircraft.body.position
+        assertEquals(FlyingFields.OPEN, ui.core.session.runner.field)
+        val p = ui.core.session.runner.sim.aircraft.body.position
         assertEquals(FlyingFields.OPEN.start.x, p.x, 0.01) // skids settle a little
         assertEquals(FlyingFields.OPEN.start.y, p.y, 0.01)
     }
@@ -56,7 +56,7 @@ class FlyingFieldTest {
         val dir = Files.createTempDirectory("ktheli-field")
         try {
             UiDriver(configDir = dir).use { ui -> ui.menu("Field", FlyingFields.OPEN.name) }
-            UiDriver(configDir = dir).use { ui -> assertEquals(FlyingFields.OPEN, ui.core.runner.field) }
+            UiDriver(configDir = dir).use { ui -> assertEquals(FlyingFields.OPEN, ui.core.session.runner.field) }
         } finally {
             dir.toFile().deleteRecursively()
         }
