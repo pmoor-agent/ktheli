@@ -167,10 +167,10 @@ class ControlsWindow(private val input: InputController, private val controls: (
             ImGui.tableSetupColumn("Keyboard")
             ImGui.tableSetupColumn("Controller")
             ImGui.tableHeadersRow()
-            groupRow("Flight (for channels without an axis)")
-            Action.entries.filter { it.flight }.forEach { bindingRow(it, hasDevice) }
-            groupRow("Simulator")
-            Action.entries.filterNot { it.flight }.forEach { bindingRow(it, hasDevice) }
+            for (group in Action.Group.entries) {
+                groupRow(group.title)
+                Action.entries.filter { it.group == group }.forEach { bindingRow(it, hasDevice) }
+            }
             ImGui.endTable()
         }
         if (Gui.button("Reset keyboard to defaults")) input.resetKeysToDefaults()

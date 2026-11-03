@@ -10,6 +10,7 @@ import imgui.flag.ImGuiWindowFlags
 import imgui.type.ImBoolean
 import ktheli.input.Action
 import ktheli.input.CalibrationSession
+import ktheli.physics.heli.Helicopter
 import ktheli.physics.sim.Controls
 
 /** Everything the UI can show or act on. */
@@ -34,7 +35,10 @@ class Ui(private val ctx: UiContext) {
     var menuBarHeight = 0f
         private set
 
+    private val helicopter: Helicopter? get() = ctx.runner.sim.aircraft as? Helicopter
+
     fun draw() {
+        ctx.input.flightModeCount = helicopter?.transmitter?.setup?.modes?.size ?: 1
         drawMenuBar()
         if (showHud.get()) drawHud()
         controlsWindow.draw(menuBarHeight)
@@ -47,10 +51,9 @@ class Ui(private val ctx: UiContext) {
     fun perform(action: Action) {
         when (action) {
             Action.PAUSE -> ctx.runner.paused = !ctx.runner.paused
-            Action.RESET -> {
-                ctx.runner.reset()
-                ctx.telemetry.clear()
-            }
+            Action.RESET -> reset()
+            Action.FLIGHT_MODE -> ctx.input.cycleFlightMode()
+            Action.THROTTLE_HOLD -> ctx.input.toggleThrottleHold()
             Action.CONTROLS_DIALOG -> controlsWindow.open.toggle()
             Action.TELEMETRY -> showTelemetry.toggle()
             Action.HUD -> showHud.toggle()
@@ -64,6 +67,12 @@ class Ui(private val ctx: UiContext) {
     }
 
     private fun ImBoolean.toggle() = set(!get())
+
+    private fun reset() {
+        ctx.runner.reset()
+        ctx.telemetry.clear()
+        ctx.input.resetSwitches()
+    }
 
     private fun shortcut(action: Action) = ctx.input.keyFor(action)?.label().orEmpty()
 
@@ -79,12 +88,28 @@ class Ui(private val ctx: UiContext) {
             actionItem(if (ctx.runner.paused) "Resume" else "Pause", Action.PAUSE)
             actionItem("Reset", Action.RESET)
             ImGui.separator()
+            actionItem("Throttle hold", Action.THROTTLE_HOLD, ctx.input.throttleHold)
+            helicopter?.let { heli ->
+                if (Gui.beginMenu("Flight mode")) {
+                    heli.transmitter.setup.modes.forEachIndexed { i, mode ->
+                        if (Gui.menuItem(mode.name, if (i == 0) shortcut(Action.FLIGHT_MODE) else "", i == ctx.input.flightMode)) {
+                            ctx.input.selectFlightMode(i)
+                        }
+                    }
+                    Gui.endMenu()
+                }
+            }
+            ImGui.separator()
             actionItem("Quit", Action.QUIT)
             Gui.endMenu()
         }
         if (Gui.beginMenu("Aircraft")) {
-            Gui.menuItem("Toy heli (450 class)", "", true)
-            Gui.textDisabled("Rotor models coming in Phase 2")
+            SimRunner.AircraftType.entries.forEach { type ->
+                if (Gui.menuItem(type.label, "", type == ctx.runner.aircraftType)) {
+                    ctx.runner.select(type)
+                    reset()
+                }
+            }
             Gui.endMenu()
         }
         if (Gui.beginMenu("Input")) {
@@ -131,6 +156,14 @@ class Ui(private val ctx: UiContext) {
             Gui.text("t %.2f s   tick %d   %d fps".format(sim.time, sim.tick, ctx.host.fps))
             Gui.text("alt %.2f m   speed %.1f m/s".format(-body.position.z, body.velocity.length()))
             Gui.text(ctx.input.active?.let { "Input: ${it.name}" } ?: "Input: keyboard")
+            helicopter?.let { heli ->
+                val mode = heli.transmitter.setup.modes[ctx.input.flightMode.coerceIn(0, heli.transmitter.setup.modes.lastIndex)]
+                Gui.text("%s   headspeed %.0f rpm".format(mode.name, heli.rotorRpm))
+                if (ctx.input.throttleHold) {
+                    val key = ctx.input.keyFor(Action.THROTTLE_HOLD)?.label()?.let { " - $it to release" }.orEmpty()
+                    Gui.textColored(1f, 0.5f, 0.2f, 1f, "THROTTLE HOLD$key")
+                }
+            }
             if (ctx.runner.paused) Gui.textColored(1f, 0.8f, 0.2f, 1f, "PAUSED")
             modePrompt()?.let { Gui.textColored(1f, 0.8f, 0.2f, 1f, it) }
         }
@@ -150,28 +183,31 @@ class Ui(private val ctx: UiContext) {
 
     private fun drawTelemetryWindow() {
         ImGui.setNextWindowPos(ImGui.getIO().displaySizeX - 620f, menuBarHeight + 20f, ImGuiCond.FirstUseEver)
-        ImGui.setNextWindowSize(600f, 520f, ImGuiCond.FirstUseEver)
+        ImGui.setNextWindowSize(600f, 420f, ImGuiCond.FirstUseEver)
         if (!Gui.begin("Telemetry", showTelemetry)) {
             Gui.end()
             return
         }
         val t = ctx.telemetry
         val xs = t.timesArray()
-        val plotHeight = (ImGui.getContentRegionAvailY() - ImGui.getStyle().itemSpacingY) / 2f
-        fun plot(title: String, series: List<Telemetry.Series>, yMin: Double? = null, yMax: Double? = null) {
-            if (ImPlot.beginPlot(title, -1f, plotHeight)) {
-                ImPlot.setupAxes("t [s]", "", 0, if (yMin == null) ImPlotAxisFlags.AutoFit else 0)
-                ImPlot.setupAxisLimits(ImPlotAxis.X1, t.latestTime - t.window, t.latestTime, ImPlotCond.Always)
-                if (yMin != null && yMax != null) ImPlot.setupAxisLimits(ImPlotAxis.Y1, yMin, yMax, ImPlotCond.Always)
-                series.forEach { ImPlot.plotLine(it.name, xs, it.toArray()) }
-                ImPlot.endPlot()
+        if (ImGui.beginTabBar("telemetryGroups")) {
+            for (group in t.groups) {
+                if (Gui.beginTabItem(group.title)) {
+                    if (ImPlot.beginPlot(group.title, -1f, -1f)) {
+                        val sticks = group.title == "Sticks"
+                        ImPlot.setupAxes("t [s]", "", 0, if (sticks) 0 else ImPlotAxisFlags.AutoFit)
+                        ImPlot.setupAxisLimits(ImPlotAxis.X1, t.latestTime - t.window, t.latestTime, ImPlotCond.Always)
+                        if (sticks) ImPlot.setupAxisLimits(ImPlotAxis.Y1, -1.05, 1.05, ImPlotCond.Always)
+                        group.series.forEach { ImPlot.plotLine(it.name, xs, it.toArray()) }
+                        ImPlot.endPlot()
+                    }
+                    Gui.endTabItem()
+                }
             }
+            ImGui.endTabBar()
         }
-        plot("Flight", listOf(t.altitude, t.climbRate, t.speed))
-        plot("Sticks", listOf(t.collective, t.roll, t.pitch, t.yaw), -1.05, 1.05)
         Gui.end()
     }
-
 
     private fun drawAbout() {
         if (openAbout) {

@@ -29,7 +29,7 @@ class AppCore(
         controls = frame.controls
         frame.actions.forEach(ui::perform)
         runner.advance(frameSeconds, controls)
-        telemetry.record(runner.sim.time, runner.sim.aircraft.body, controls)
+        telemetry.record(runner.sim.time, runner.sim.aircraft, controls)
     }
 
     /** A key went down; modifiers are read from the keyboard state. */

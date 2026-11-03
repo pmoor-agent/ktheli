@@ -1,5 +1,6 @@
 package ktheli.physics
 
+import ktheli.physics.heli.Helicopter
 import ktheli.physics.math.DMath
 import ktheli.physics.model.ToyHeli
 import ktheli.physics.random.Pcg32
@@ -54,7 +55,21 @@ class DeterminismTest {
         assertEquals(GOLDEN, hash, "Golden hash changed: 0x%016x".format(hash))
     }
 
+    @Test
+    fun `golden helicopter hash`() {
+        val sim = Simulation(Helicopter(seed = 7))
+        val rng = Pcg32.seeded(99)
+        var c = Controls(flightMode = 1)
+        repeat(6_000) { i ->
+            if (i % 40 == 0) c = c.copy(collective = if (i > 4000) 0.5 else 0.0, roll = 0.2 * rng.nextGaussian(), yaw = 0.2 * rng.nextGaussian())
+            sim.step(c)
+        }
+        val hash = sim.stateHash()
+        assertEquals(GOLDEN_HELI, hash, "Golden helicopter hash changed: 0x%016x".format(hash))
+    }
+
     private companion object {
+        val GOLDEN_HELI = 0x927d855be0ecfc1fuL.toLong()
         val GOLDEN = 0x953bafce4971c8f0uL.toLong()
     }
 }
