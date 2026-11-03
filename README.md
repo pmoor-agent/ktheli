@@ -76,6 +76,32 @@ Window layout persists in `~/.config/ktheli/imgui.ini`; bindings and calibration
 | `Ctrl+Q` | Quit |
 | `Esc` | Cancel calibration / assignment / capture (not rebindable) |
 
+## Testing the UI
+
+The UI runs headlessly in tests: no window, no GPU, no display needed. `app/src/test/.../harness/UiDriver`
+drives the real `AppCore` (simulation, input, ImGui UI) at a fixed 1/60 s per frame:
+
+```kotlin
+@Test
+fun `rebinding a key`() = uiTest { ui ->
+    ui.menu("Input", "Controls...")                 // click through menus
+    ui.click("Controls/Buttons & keys")             // widgets are found by path
+    ui.click("Controls/Buttons & keys/Pause / resume/key")
+    ui.press(Keys.F5)                               // keyboard (with optional modifiers)
+    assertEquals(KeyChord(Keys.F5), ui.core.input.keyFor(Action.PAUSE))
+    ui.joystick.axes[2] = 0.5f; ui.frame()          // scripted joystick axes and buttons
+    ui.snapshot(Paths.get("build/ui-snapshots/x.png")) // CPU-rendered UI screenshot
+}
+```
+
+- Widget paths come from `UiTrace`, fed by the `Gui` wrappers around ImGui calls: window, menu, tab, combo or
+  row names joined with `/`, ending in the widget's visible label (or explicit trace name). `ui.dump()` lists
+  every clickable path of the current frame; `ui.texts()` / `waitForText()` see the visible text.
+- Mouse clicks go through ImGui's IO; keys go through the app's own key handling.
+- `UiSnapshotTest` renders a tour of the UI to `app/build/ui-snapshots/` with a small software rasterizer
+  (the 3D scene isn't drawn there).
+- Use `Gui.*` instead of `ImGui.*` for new widgets and texts so tests can find them.
+
 ### Development hooks (environment variables)
 
 - `KTHELI_SCREENSHOT=out.png` (+ optional `KTHELI_SCREENSHOT_AFTER=seconds`, default 2): capture one frame, then exit.

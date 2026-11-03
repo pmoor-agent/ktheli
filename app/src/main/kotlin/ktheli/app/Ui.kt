@@ -1,6 +1,5 @@
 package ktheli.app
 
-import com.badlogic.gdx.Gdx
 import imgui.ImGui
 import imgui.extension.implot.ImPlot
 import imgui.extension.implot.flag.ImPlotAxis
@@ -17,10 +16,10 @@ import ktheli.physics.sim.Controls
 class UiContext(
     val runner: SimRunner,
     val input: InputController,
-    val scene: Scene,
+    val view: ViewSettings,
     val telemetry: Telemetry,
     val controls: () -> Controls,
-    val requestScreenshot: () -> Unit,
+    val host: AppHost,
 )
 
 /** Immediate-mode UI: call [draw] once per frame between ImGui newFrame/render. */
@@ -55,10 +54,10 @@ class Ui(private val ctx: UiContext) {
             Action.CONTROLS_DIALOG -> controlsWindow.open.toggle()
             Action.TELEMETRY -> showTelemetry.toggle()
             Action.HUD -> showHud.toggle()
-            Action.AUTO_ZOOM -> ctx.scene.autoZoom = !ctx.scene.autoZoom
-            Action.SCREENSHOT -> ctx.requestScreenshot()
+            Action.AUTO_ZOOM -> ctx.view.autoZoom = !ctx.view.autoZoom
+            Action.SCREENSHOT -> ctx.host.requestScreenshot()
             Action.NEXT_DEVICE -> ctx.input.selectNextDevice()
-            Action.QUIT -> Gdx.app.exit()
+            Action.QUIT -> ctx.host.exit()
             Action.COLLECTIVE_ZERO -> ctx.input.digital.zeroCollective()
             else -> {} // hold actions are polled, not performed
         }
@@ -69,53 +68,53 @@ class Ui(private val ctx: UiContext) {
     private fun shortcut(action: Action) = ctx.input.keyFor(action)?.label().orEmpty()
 
     private fun actionItem(label: String, action: Action, selected: Boolean = false) {
-        if (ImGui.menuItem(label, shortcut(action), selected)) perform(action)
+        if (Gui.menuItem(label, shortcut(action), selected)) perform(action)
     }
 
     private fun drawMenuBar() {
         if (!ImGui.beginMainMenuBar()) return
         menuBarHeight = ImGui.getWindowHeight()
 
-        if (ImGui.beginMenu("Sim")) {
+        if (Gui.beginMenu("Sim")) {
             actionItem(if (ctx.runner.paused) "Resume" else "Pause", Action.PAUSE)
             actionItem("Reset", Action.RESET)
             ImGui.separator()
             actionItem("Quit", Action.QUIT)
-            ImGui.endMenu()
+            Gui.endMenu()
         }
-        if (ImGui.beginMenu("Aircraft")) {
-            ImGui.menuItem("Toy heli (450 class)", "", true)
-            ImGui.textDisabled("Rotor models coming in Phase 2")
-            ImGui.endMenu()
+        if (Gui.beginMenu("Aircraft")) {
+            Gui.menuItem("Toy heli (450 class)", "", true)
+            Gui.textDisabled("Rotor models coming in Phase 2")
+            Gui.endMenu()
         }
-        if (ImGui.beginMenu("Input")) {
+        if (Gui.beginMenu("Input")) {
             actionItem("Controls...", Action.CONTROLS_DIALOG, controlsWindow.open.get())
             ImGui.separator()
             val joysticks = ctx.input.joysticks
             if (joysticks.isEmpty()) {
-                ImGui.textDisabled("No joystick connected - keyboard active")
+                Gui.textDisabled("No joystick connected - keyboard active")
             } else {
                 val active = ctx.input.active
                 joysticks.forEach { j ->
-                    if (ImGui.menuItem("${j.name}##${j.jid}", "", j == active)) ctx.input.selectDevice(j.guid)
+                    if (Gui.menuItem("${j.name}##${j.jid}", "", j == active)) ctx.input.selectDevice(j.guid)
                 }
             }
-            ImGui.endMenu()
+            Gui.endMenu()
         }
-        if (ImGui.beginMenu("View")) {
+        if (Gui.beginMenu("View")) {
             actionItem("HUD", Action.HUD, showHud.get())
             actionItem("Telemetry", Action.TELEMETRY, showTelemetry.get())
-            actionItem("Camera auto-zoom", Action.AUTO_ZOOM, ctx.scene.autoZoom)
+            actionItem("Camera auto-zoom", Action.AUTO_ZOOM, ctx.view.autoZoom)
             ImGui.separator()
             actionItem("Save screenshot", Action.SCREENSHOT)
-            ImGui.endMenu()
+            Gui.endMenu()
         }
-        if (ImGui.beginMenu("Help")) {
+        if (Gui.beginMenu("Help")) {
             actionItem("Controls...", Action.CONTROLS_DIALOG)
-            ImGui.menuItem("ImGui demo", "", showDemo)
+            Gui.menuItem("ImGui demo", "", showDemo)
             ImGui.separator()
-            if (ImGui.menuItem("About ktheli...")) openAbout = true
-            ImGui.endMenu()
+            if (Gui.menuItem("About ktheli...")) openAbout = true
+            Gui.endMenu()
         }
         ImGui.endMainMenuBar()
     }
@@ -126,16 +125,16 @@ class Ui(private val ctx: UiContext) {
             ImGuiWindowFlags.NoNav or ImGuiWindowFlags.NoMove or ImGuiWindowFlags.NoMouseInputs
         ImGui.setNextWindowPos(10f, menuBarHeight + 10f)
         ImGui.setNextWindowBgAlpha(0.35f)
-        if (ImGui.begin("##hud", flags)) {
+        if (Gui.begin("##hud", flags = flags)) {
             val sim = ctx.runner.sim
             val body = sim.aircraft.body
-            ImGui.text("t %.2f s   tick %d   %d fps".format(sim.time, sim.tick, Gdx.graphics.framesPerSecond))
-            ImGui.text("alt %.2f m   speed %.1f m/s".format(-body.position.z, body.velocity.length()))
-            ImGui.text(ctx.input.active?.let { "Input: ${it.name}" } ?: "Input: keyboard")
-            if (ctx.runner.paused) ImGui.textColored(1f, 0.8f, 0.2f, 1f, "PAUSED")
-            modePrompt()?.let { ImGui.textColored(1f, 0.8f, 0.2f, 1f, it) }
+            Gui.text("t %.2f s   tick %d   %d fps".format(sim.time, sim.tick, ctx.host.fps))
+            Gui.text("alt %.2f m   speed %.1f m/s".format(-body.position.z, body.velocity.length()))
+            Gui.text(ctx.input.active?.let { "Input: ${it.name}" } ?: "Input: keyboard")
+            if (ctx.runner.paused) Gui.textColored(1f, 0.8f, 0.2f, 1f, "PAUSED")
+            modePrompt()?.let { Gui.textColored(1f, 0.8f, 0.2f, 1f, it) }
         }
-        ImGui.end()
+        Gui.end()
     }
 
     private fun modePrompt(): String? = when (val m = ctx.input.mode) {
@@ -150,10 +149,10 @@ class Ui(private val ctx: UiContext) {
     }
 
     private fun drawTelemetryWindow() {
-        ImGui.setNextWindowPos(Gdx.graphics.width - 620f, menuBarHeight + 20f, ImGuiCond.FirstUseEver)
+        ImGui.setNextWindowPos(ImGui.getIO().displaySizeX - 620f, menuBarHeight + 20f, ImGuiCond.FirstUseEver)
         ImGui.setNextWindowSize(600f, 520f, ImGuiCond.FirstUseEver)
-        if (!ImGui.begin("Telemetry", showTelemetry)) {
-            ImGui.end()
+        if (!Gui.begin("Telemetry", showTelemetry)) {
+            Gui.end()
             return
         }
         val t = ctx.telemetry
@@ -170,7 +169,7 @@ class Ui(private val ctx: UiContext) {
         }
         plot("Flight", listOf(t.altitude, t.climbRate, t.speed))
         plot("Sticks", listOf(t.collective, t.roll, t.pitch, t.yaw), -1.05, 1.05)
-        ImGui.end()
+        Gui.end()
     }
 
 
@@ -181,14 +180,14 @@ class Ui(private val ctx: UiContext) {
         }
         val center = ImGui.getMainViewport().center
         ImGui.setNextWindowPos(center.x, center.y, ImGuiCond.Appearing, 0.5f, 0.5f)
-        if (ImGui.beginPopupModal("About ktheli", ImGuiWindowFlags.AlwaysAutoResize)) {
-            ImGui.text("ktheli - an RC helicopter simulator")
-            ImGui.textDisabled("Kotlin | libGDX | Dear ImGui")
+        if (Gui.beginPopupModal("About ktheli", ImGuiWindowFlags.AlwaysAutoResize)) {
+            Gui.text("ktheli - an RC helicopter simulator")
+            Gui.textDisabled("Kotlin | libGDX | Dear ImGui")
             ImGui.spacing()
-            ImGui.text("Deterministic fixed-step physics at ${ctx.runner.sim.tickRateHz} Hz.")
+            Gui.text("Deterministic fixed-step physics at ${ctx.runner.sim.tickRateHz} Hz.")
             ImGui.spacing()
-            if (ImGui.button("Close", 120f, 0f)) ImGui.closeCurrentPopup()
-            ImGui.endPopup()
+            if (Gui.button("Close", 120f, 0f)) ImGui.closeCurrentPopup()
+            Gui.endPopup()
         }
     }
 }

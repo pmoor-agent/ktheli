@@ -7,12 +7,12 @@ import kotlin.math.sin
 class Joystick(val jid: Int, val guid: String, val name: String, val axes: FloatArray, val buttons: BooleanArray)
 
 /** Raw GLFW joystick access. GLFW requires these calls on the main (render) thread. */
-object Joysticks {
+object Joysticks : JoystickSource {
     // Dev hook: KTHELI_FAKE_JOYSTICK=1 adds a synthetic device with slowly sweeping axes and blinking buttons.
     private val fake = System.getenv("KTHELI_FAKE_JOYSTICK") != null
     private val start = System.nanoTime()
 
-    fun poll(): List<Joystick> {
+    override fun poll(): List<Joystick> {
         val real = (GLFW.GLFW_JOYSTICK_1..GLFW.GLFW_JOYSTICK_LAST).mapNotNull { jid ->
             if (!GLFW.glfwJoystickPresent(jid)) return@mapNotNull null
             val axisBuf = GLFW.glfwGetJoystickAxes(jid) ?: return@mapNotNull null

@@ -25,27 +25,27 @@ class ControlsWindow(private val input: InputController, private val controls: (
 
     private fun tab(t: Tab): Boolean {
         val flags = if (selectTab == t.title) ImGuiTabItemFlags.SetSelected else 0
-        return ImGui.beginTabItem(t.title, flags)
+        return Gui.beginTabItem(t.title, flags)
     }
 
     fun draw(menuBarHeight: Float) {
         if (!open.get()) return
         ImGui.setNextWindowPos(20f, menuBarHeight + 120f, ImGuiCond.FirstUseEver)
         ImGui.setNextWindowSize(600f, 560f, ImGuiCond.FirstUseEver)
-        if (ImGui.begin("Controls", open)) {
+        if (Gui.begin("Controls", open)) {
             if (ImGui.beginTabBar("controlsTabs")) {
-                if (tab(Tab.STICKS)) { sticksTab(); ImGui.endTabItem() }
-                if (tab(Tab.BINDINGS)) { bindingsTab(); ImGui.endTabItem() }
-                if (tab(Tab.MONITOR)) { monitorTab(); ImGui.endTabItem() }
+                if (tab(Tab.STICKS)) { sticksTab(); Gui.endTabItem() }
+                if (tab(Tab.BINDINGS)) { bindingsTab(); Gui.endTabItem() }
+                if (tab(Tab.MONITOR)) { monitorTab(); Gui.endTabItem() }
                 ImGui.endTabBar()
                 selectTab = null
             }
             if (input.status.isNotEmpty()) {
                 ImGui.separator()
-                ImGui.text(input.status)
+                Gui.text(input.status)
             }
         }
-        ImGui.end()
+        Gui.end()
     }
 
     // --- Sticks ----------------------------------------------------------------------------------
@@ -54,7 +54,7 @@ class ControlsWindow(private val input: InputController, private val controls: (
         val active = input.active
         val profile = input.activeProfile
         if (active == null || profile == null) {
-            ImGui.textWrapped(
+            Gui.textWrapped(
                 "No joystick detected. Plug in the transmitter dongle or a game controller; it appears here " +
                     "automatically. Until then the keys on the \"Buttons & keys\" tab fly the heli.",
             )
@@ -76,58 +76,58 @@ class ControlsWindow(private val input: InputController, private val controls: (
             val outputs = mapOf(Channel.COLLECTIVE to c.collective, Channel.ROLL to c.roll, Channel.PITCH to c.pitch, Channel.YAW to c.yaw)
             Channel.entries.forEach { ch ->
                 val b = profile.bindings[ch]
-                ImGui.pushID(ch.name)
+                Gui.pushId(ch.label)
                 ImGui.tableNextRow()
-                ImGui.tableNextColumn(); ImGui.text(ch.label)
+                ImGui.tableNextColumn(); Gui.text(ch.label)
                 ImGui.tableNextColumn()
-                if (b != null) ImGui.text("axis ${b.axis}") else ImGui.textDisabled("keys/buttons")
+                if (b != null) Gui.text("axis ${b.axis}") else Gui.textDisabled("keys/buttons")
                 ImGui.tableNextColumn()
-                if (b != null && ImGui.checkbox("##rev", b.reversed)) input.updateBinding(ch) { it.copy(reversed = !it.reversed) }
+                if (b != null && Gui.checkbox("##rev", b.reversed)) input.updateBinding(ch) { it.copy(reversed = !it.reversed) }
                 ImGui.tableNextColumn()
-                if (b != null && ImGui.checkbox("##ctr", b.centered)) input.updateBinding(ch) { it.copy(centered = !it.centered) }
+                if (b != null && Gui.checkbox("##ctr", b.centered)) input.updateBinding(ch) { it.copy(centered = !it.centered) }
                 ImGui.tableNextColumn(); bar(outputs.getValue(ch))
                 ImGui.tableNextColumn()
                 if ((input.mode as? InputController.Mode.AssigningAxis)?.channel == ch) {
-                    if (ImGui.smallButton("Cancel")) input.cancel()
+                    if (Gui.smallButton("Cancel")) input.cancel()
                 } else {
-                    ImGui.beginDisabled(input.mode != InputController.Mode.Fly)
-                    if (ImGui.smallButton("Assign")) input.startAssignAxis(ch)
+                    Gui.beginDisabled(input.mode != InputController.Mode.Fly)
+                    if (Gui.smallButton("Assign")) input.startAssignAxis(ch)
                     if (b != null) {
                         ImGui.sameLine()
-                        if (ImGui.smallButton("Clear")) input.clearAxis(ch)
+                        if (Gui.smallButton("Clear")) input.clearAxis(ch)
                     }
-                    ImGui.endDisabled()
+                    Gui.endDisabled()
                 }
-                ImGui.popID()
+                Gui.popId()
             }
             ImGui.endTable()
         }
-        ImGui.textDisabled("Assign: click, then move that stick up / right / forward.")
-        ImGui.textDisabled("Centered: spring-loaded stick, 0 at center (off for throttle-style).")
-        ImGui.textDisabled("Cleared channels use the digital flight keys/buttons.")
+        Gui.textDisabled("Assign: click, then move that stick up / right / forward.")
+        Gui.textDisabled("Centered: spring-loaded stick, 0 at center (off for throttle-style).")
+        Gui.textDisabled("Cleared channels use the digital flight keys/buttons.")
 
         ImGui.separatorText("Calibration")
         when (val m = input.mode) {
             is InputController.Mode.Calibrating -> when (m.session.phase) {
                 CalibrationSession.Phase.CENTER -> {
-                    ImGui.textColored(1f, 0.8f, 0.2f, 1f, "Keep all sticks centered and still...")
+                    Gui.textColored(1f, 0.8f, 0.2f, 1f, "Keep all sticks centered and still...")
                     ImGui.progressBar((m.centerSeconds / InputController.CENTER_SECONDS).toFloat(), -1f, 0f, "learning neutral range")
-                    if (ImGui.button("Cancel##cal")) input.cancel()
+                    if (Gui.button("Cancel##cal")) input.cancel()
                     calibrationAxes(m.session)
                 }
                 CalibrationSession.Phase.EXTREMES -> {
-                    ImGui.textColored(1f, 0.8f, 0.2f, 1f, "Now move every stick to all of its extremes, then click Finish.")
-                    if (ImGui.button("Finish")) input.finishCalibration()
+                    Gui.textColored(1f, 0.8f, 0.2f, 1f, "Now move every stick to all of its extremes, then click Finish.")
+                    if (Gui.button("Finish")) input.finishCalibration()
                     ImGui.sameLine()
-                    if (ImGui.button("Cancel##cal")) input.cancel()
+                    if (Gui.button("Cancel##cal")) input.cancel()
                     calibrationAxes(m.session)
                 }
             }
             else -> {
-                ImGui.textWrapped("Center all sticks (collective anywhere) and click Start. Leave them still for a moment while the neutral range is learned, then sweep every stick to its extremes.")
-                ImGui.beginDisabled(m != InputController.Mode.Fly)
-                if (ImGui.button("Start calibration")) input.startCalibration()
-                ImGui.endDisabled()
+                Gui.textWrapped("Center all sticks (collective anywhere) and click Start. Leave them still for a moment while the neutral range is learned, then sweep every stick to its extremes.")
+                Gui.beginDisabled(m != InputController.Mode.Fly)
+                if (Gui.button("Start calibration")) input.startCalibration()
+                Gui.endDisabled()
             }
         }
     }
@@ -137,10 +137,10 @@ class ControlsWindow(private val input: InputController, private val controls: (
         if (ImGui.beginTable("calAxes", 3, ImGuiTableFlags.SizingStretchProp)) {
             active.axes.forEachIndexed { i, v ->
                 ImGui.tableNextRow()
-                ImGui.tableNextColumn(); ImGui.text("axis $i")
+                ImGui.tableNextColumn(); Gui.text("axis $i")
                 ImGui.tableNextColumn(); bar(v.toDouble())
                 ImGui.tableNextColumn()
-                ImGui.textDisabled("jitter +/-%.3f  travel %.2f".format(session.jitter(i), session.travel(i)))
+                Gui.textDisabled("jitter +/-%.3f  travel %.2f".format(session.jitter(i), session.travel(i)))
             }
             ImGui.endTable()
         }
@@ -148,13 +148,13 @@ class ControlsWindow(private val input: InputController, private val controls: (
 
     private fun deviceCombo() {
         val active = input.active ?: return
-        if (ImGui.beginCombo("Device", active.name)) {
+        if (Gui.beginCombo("Device", active.name)) {
             input.joysticks.forEach { j ->
-                if (ImGui.selectable("${j.name}##${j.jid}", j == active)) input.selectDevice(j.guid)
+                if (Gui.selectable("${j.name}##${j.jid}", j == active)) input.selectDevice(j.guid)
             }
-            ImGui.endCombo()
+            Gui.endCombo()
         }
-        ImGui.textDisabled("GUID ${active.guid}")
+        Gui.textDisabled("GUID ${active.guid}")
     }
 
     // --- Buttons & keys -------------------------------------------------------------------------
@@ -173,22 +173,22 @@ class ControlsWindow(private val input: InputController, private val controls: (
             Action.entries.filterNot { it.flight }.forEach { bindingRow(it, hasDevice) }
             ImGui.endTable()
         }
-        if (ImGui.button("Reset keyboard to defaults")) input.resetKeysToDefaults()
-        ImGui.textDisabled("Click a binding, then press the key or button. Esc cancels.")
-        ImGui.textDisabled("D-pad directions count as buttons.")
-        if (!hasDevice) ImGui.textDisabled("Connect a controller to bind its buttons.")
+        if (Gui.button("Reset keyboard to defaults")) input.resetKeysToDefaults()
+        Gui.textDisabled("Click a binding, then press the key or button. Esc cancels.")
+        Gui.textDisabled("D-pad directions count as buttons.")
+        if (!hasDevice) Gui.textDisabled("Connect a controller to bind its buttons.")
     }
 
     private fun groupRow(title: String) {
         ImGui.tableNextRow()
         ImGui.tableNextColumn()
-        ImGui.textColored(0.6f, 0.8f, 1f, 1f, title)
+        Gui.textColored(0.6f, 0.8f, 1f, 1f, title)
     }
 
     private fun bindingRow(action: Action, hasDevice: Boolean) {
-        ImGui.pushID(action.name)
+        Gui.pushId(action.label)
         ImGui.tableNextRow()
-        ImGui.tableNextColumn(); ImGui.text(action.label)
+        ImGui.tableNextColumn(); Gui.text(action.label)
 
         ImGui.tableNextColumn()
         bindingCell(
@@ -211,7 +211,7 @@ class ControlsWindow(private val input: InputController, private val controls: (
             onCapture = { input.startCaptureButton(action) },
             onClear = { input.clearButton(action) },
         )
-        ImGui.popID()
+        Gui.popId()
     }
 
     private fun bindingCell(
@@ -220,18 +220,18 @@ class ControlsWindow(private val input: InputController, private val controls: (
     ) {
         if (capturing) {
             ImGui.pushStyleColor(ImGuiCol.Button, 0.8f, 0.55f, 0.1f, 1f)
-            if (ImGui.smallButton("$prompt##$id")) input.cancel()
+            if (Gui.smallButton("$prompt##$id", name = id)) input.cancel()
             ImGui.popStyleColor()
             return
         }
-        ImGui.beginDisabled(!enabled || input.mode != InputController.Mode.Fly)
-        if (ImGui.smallButton("${label ?: "-"}##$id")) onCapture()
+        Gui.beginDisabled(!enabled || input.mode != InputController.Mode.Fly)
+        if (Gui.smallButton("${label ?: "-"}##$id", name = id)) onCapture()
         if (label != null) {
             ImGui.sameLine()
-            if (ImGui.smallButton("x##clear$id")) onClear()
+            if (Gui.smallButton("x##clear$id", name = "$id-clear")) onClear()
             ImGui.setItemTooltip("Clear")
         }
-        ImGui.endDisabled()
+        Gui.endDisabled()
     }
 
     // --- Monitor ---------------------------------------------------------------------------------
@@ -240,7 +240,7 @@ class ControlsWindow(private val input: InputController, private val controls: (
         val active = input.active
         val profile = input.activeProfile
         if (active == null || profile == null) {
-            ImGui.textWrapped("No joystick detected.")
+            Gui.textWrapped("No joystick detected.")
             return
         }
         deviceCombo()
@@ -249,13 +249,13 @@ class ControlsWindow(private val input: InputController, private val controls: (
         if (ImGui.beginTable("axes", 3, ImGuiTableFlags.SizingStretchProp)) {
             active.axes.forEachIndexed { i, v ->
                 ImGui.tableNextRow()
-                ImGui.tableNextColumn(); ImGui.text("axis $i")
+                ImGui.tableNextColumn(); Gui.text("axis $i")
                 ImGui.tableNextColumn(); bar(v.toDouble())
                 ImGui.tableNextColumn()
                 val bound = profile.bindings.filterValues { it.axis == i }.keys.joinToString { it.label }
                 val cal = profile.calibration.getOrNull(i)
                 val neutral = cal?.let { "neutral +/-%.3f".format((it.neutralHigh - it.neutralLow) / 2) }.orEmpty()
-                ImGui.textDisabled(listOf(bound, neutral).filter { it.isNotEmpty() }.joinToString("  "))
+                Gui.textDisabled(listOf(bound, neutral).filter { it.isNotEmpty() }.joinToString("  "))
             }
             ImGui.endTable()
         }
@@ -268,7 +268,7 @@ class ControlsWindow(private val input: InputController, private val controls: (
             ImGui.pushStyleColor(ImGuiCol.Button, color[0], color[1], color[2], 1f)
             ImGui.pushStyleColor(ImGuiCol.ButtonHovered, color[0], color[1], color[2], 1f)
             ImGui.pushStyleColor(ImGuiCol.ButtonActive, color[0], color[1], color[2], 1f)
-            ImGui.button("%2d##mon$i".format(i), 34f, 0f)
+            Gui.button("%2d##mon$i".format(i), 34f, 0f, name = "button $i")
             ImGui.popStyleColor(3)
             ImGui.setItemTooltip(boundTo[i]?.label ?: "button $i (unbound)")
         }

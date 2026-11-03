@@ -1,6 +1,5 @@
 package ktheli.app
 
-import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.Input.Keys
 import ktheli.input.Action
 import ktheli.input.AxisDetector
@@ -19,7 +18,11 @@ import ktheli.physics.sim.Controls
  * Owns device selection, the binding/calibration workflows, keyboard and button bindings, and digital
  * flight input. Produces one [Frame] per rendered frame; key events come in through [keyDown].
  */
-class InputController(private val store: ProfileStore = ProfileStore()) {
+class InputController(
+    private val store: ProfileStore,
+    private val joystickSource: JoystickSource,
+    private val keyboard: KeyboardState,
+) {
     sealed interface Mode {
         data object Fly : Mode
         class Calibrating(val session: CalibrationSession) : Mode {
@@ -58,7 +61,7 @@ class InputController(private val store: ProfileStore = ProfileStore()) {
 
     fun update(dt: Double, keyboardEnabled: Boolean): Frame {
         this.keyboardEnabled = keyboardEnabled
-        joysticks = Joysticks.poll()
+        joysticks = joystickSource.poll()
         joysticks.forEach { j ->
             if (j.guid !in config.devices) save(config.copy(devices = config.devices + (j.guid to DeviceProfile.default(j.guid, j.name))))
         }
@@ -113,7 +116,7 @@ class InputController(private val store: ProfileStore = ProfileStore()) {
 
     private fun isHeld(action: Action): Boolean {
         val key = keyFor(action)
-        if (keyboardEnabled && key != null && Gdx.input.isKeyPressed(key.key)) return true
+        if (keyboardEnabled && key != null && keyboard.isPressed(key.key)) return true
         val button = buttonFor(action) ?: return false
         return active?.buttons?.getOrNull(button) == true
     }
