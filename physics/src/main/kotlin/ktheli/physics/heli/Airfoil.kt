@@ -7,6 +7,9 @@ import ktheli.physics.math.deg
  * A symmetric airfoil over the full ±180° range, shaped after the NACA 0012 at RC Reynolds numbers
  * (~300k; Sheldahl & Klimas, SAND80-2114): linear lift up to stall, then a smooth transition to flat-plate
  * behavior (`Cl = Cfp·sin 2α`, `Cd = Cd0 + Cdfp·sin²α`), which also covers reverse flow on the retreating side.
+ *
+ * Below [referenceReynolds] the zero-lift drag grows like a laminar boundary layer, `Cd0·√(Re_ref/Re)`,
+ * capped at [maxLowReynoldsFactor]: small, slow blades are draggier, which matters as a rotor coasts down.
  */
 data class AirfoilParams(
     val liftSlope: Double = 5.7, // per rad
@@ -16,6 +19,8 @@ data class AirfoilParams(
     val dragRise: Double = 0.45, // per rad², attached flow
     val flatPlateLift: Double = 1.05,
     val flatPlateDrag: Double = 2.0,
+    val referenceReynolds: Double = 150_000.0,
+    val maxLowReynoldsFactor: Double = 3.0,
 )
 
 /** Precomputed lift/drag tables (0.25° steps) so the hot loop is a lookup, and identical everywhere. */
@@ -58,6 +63,13 @@ class Airfoil(val params: AirfoilParams = AirfoilParams()) {
 
     fun cd(alpha: Double): Double = lookup(cdTable, alpha)
 
+    /** Drag including the low-Reynolds-number increase of the zero-lift part. */
+    fun cd(alpha: Double, reynolds: Double): Double = cd(alpha) + params.cd0 * (lowReynoldsFactor(reynolds) - 1.0)
+
+    fun lowReynoldsFactor(reynolds: Double): Double =
+        if (reynolds >= params.referenceReynolds) 1.0
+        else DMath.sqrt(params.referenceReynolds / maxOf(reynolds, 1.0)).coerceAtMost(params.maxLowReynoldsFactor)
+
     private fun lookup(table: DoubleArray, alpha: Double): Double {
         val t = (wrap(alpha) + DMath.PI) / step
         val i = t.toInt().coerceIn(0, size - 2)
@@ -66,6 +78,9 @@ class Airfoil(val params: AirfoilParams = AirfoilParams()) {
     }
 
     companion object {
+        /** Kinematic viscosity of air at 15 °C, m²/s. */
+        const val AIR_VISCOSITY = 1.46e-5
+
         /** Wraps an angle to [-π, π). */
         fun wrap(angle: Double): Double {
             var a = angle

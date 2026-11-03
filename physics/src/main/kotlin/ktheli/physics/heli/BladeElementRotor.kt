@@ -114,7 +114,7 @@ class BladeElementRotor(private val p: MainRotorParams, private val airDensity: 
                 val alpha = theta + DMath.atan2(wn, ut)
                 val q = 0.5 * airDensity * u2 * chord * dr
                 val cl = if (lifting[k]) airfoil.cl(alpha) else 0.0
-                val cd = airfoil.cd(alpha)
+                val cd = airfoil.cd(alpha, u * chord / Airfoil.AIR_VISCOSITY)
                 val windDir = (f.tangential * (-ut) + f.normal * wn) / u
                 val liftDir = f.radial cross windDir
                 val sectionForce = liftDir * (q * cl) + windDir * (q * cd)

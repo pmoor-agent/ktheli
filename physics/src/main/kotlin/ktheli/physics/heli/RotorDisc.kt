@@ -57,13 +57,16 @@ class RotorDisc(val params: RotorParams, private val airDensity: Double = AIR_DE
 
     /**
      * Mean section drag coefficient. The mean blade angle of attack follows from the thrust coefficient,
-     * `α ≈ 6·C_T / (σ·a)` (Leishman, Principles of Helicopter Aerodynamics).
+     * `α ≈ 6·C_T / (σ·a)` (Leishman, Principles of Helicopter Aerodynamics); the zero-lift part grows at low
+     * Reynolds numbers (at 75 % radius) like [AirfoilParams] describes.
      */
     fun sectionDrag(thrust: Double, tipSpeed: Double): Double {
         val ct = thrust / (airDensity * area * tipSpeed * tipSpeed)
         val alpha = abs(6.0 * ct / (solidity * params.liftSlope))
         val stalled = alpha - params.stallAngle
-        return params.profileDrag + params.dragRise * alpha * alpha +
+        val reynolds = 0.75 * tipSpeed * params.chord / Airfoil.AIR_VISCOSITY
+        val lowReynolds = if (reynolds >= LOW_RE_REFERENCE) 1.0 else DMath.sqrt(LOW_RE_REFERENCE / maxOf(reynolds, 1.0)).coerceAtMost(LOW_RE_MAX)
+        return params.profileDrag * lowReynolds + params.dragRise * alpha * alpha +
             (if (stalled > 0.0) params.stallDrag * stalled * stalled else 0.0)
     }
 
@@ -107,6 +110,8 @@ class RotorDisc(val params: RotorParams, private val airDensity: Double = AIR_DE
 
     companion object {
         const val AIR_DENSITY = 1.225 // kg/m³, sea level ISA
+        private const val LOW_RE_REFERENCE = 150_000.0 // see AirfoilParams
+        private const val LOW_RE_MAX = 3.0
         private const val MIN_OMEGA = 1.0
         private const val INFLOW_ITERATIONS = 8
         private const val MAX_NEWTON_STEP = 3.0 // m/s
