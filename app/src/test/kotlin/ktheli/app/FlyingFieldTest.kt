@@ -26,7 +26,7 @@ class FlyingFieldTest {
         val line = FlyingFields.HOME.trees!!
         val trees = line.trees()
         println("tree line: %d trees, %d conifers".format(trees.size, trees.count { it.kind == TreeLine.Kind.CONIFER }))
-        assertTrue(trees.size in 250..350)
+        assertTrue(trees.size in 600..900, "a dense tree line")
         for (t in trees) {
             assertTrue(hypot(t.position.x, t.position.y) in line.radius..line.radius + line.depth)
             assertTrue(t.height in 10.0..20.0)

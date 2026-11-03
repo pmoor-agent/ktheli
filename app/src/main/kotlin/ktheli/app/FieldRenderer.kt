@@ -13,6 +13,7 @@ import com.badlogic.gdx.graphics.g3d.attributes.BlendingAttribute
 import com.badlogic.gdx.graphics.g3d.attributes.ColorAttribute
 import com.badlogic.gdx.graphics.g3d.attributes.IntAttribute
 import com.badlogic.gdx.graphics.g3d.attributes.TextureAttribute
+import com.badlogic.gdx.graphics.g3d.utils.MeshBuilder
 import com.badlogic.gdx.graphics.g3d.utils.MeshPartBuilder
 import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder
 import com.badlogic.gdx.graphics.g3d.utils.shapebuilders.ConeShapeBuilder
@@ -185,6 +186,7 @@ class FieldRenderer(val field: FlyingField) : Disposable {
         const val GROUND_Y = -0.01f // just under the grid lines
         const val PAD_Y = 0.004f // painted on the grass
         const val SHADOW_Y = 0.008f // above the pad
-        private const val MAX_VERTICES_PER_PART = 30_000 // 16-bit indices
+        // ModelBuilder starts a new mesh once a mesh passes half of MeshBuilder.MAX_VERTICES (16-bit indices).
+        private const val MAX_VERTICES_PER_PART = MeshBuilder.MAX_VERTICES / 2
     }
 }

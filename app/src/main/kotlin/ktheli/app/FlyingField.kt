@@ -43,11 +43,12 @@ data class Ground(
 /** A round landing pad with an "H", drawn flat on the grass. */
 data class Pad(val center: Vec3, val radius: Double)
 
-/** A ring of trees around the field, placed deterministically from [seed]. */
+/** A ring of trees around the field, [rows] staggered rows deep, placed deterministically from [seed]. */
 data class TreeLine(
     val radius: Double = 200.0,
     val depth: Double = 30.0,
-    val spacing: Double = 9.0,
+    val rows: Int = 3,
+    val spacing: Double = 5.5,
     val minHeight: Double = 10.0,
     val maxHeight: Double = 20.0,
     val conifers: Double = 0.55,
@@ -58,16 +59,15 @@ data class TreeLine(
     /** One tree: foot position (NED, on the ground), height, crown colour shade 0..1. */
     data class Tree(val position: Vec3, val height: Double, val kind: Kind, val shade: Double)
 
-    /** The trees in a band [radius]..[radius] + [depth], two staggered rows deep, roughly [spacing] apart. */
+    /** The trees in a band [radius]..[radius] + [depth], [rows] staggered rows, roughly [spacing] apart in each. */
     fun trees(): List<Tree> {
         val rng = Random(seed)
         val out = ArrayList<Tree>()
-        val rows = 2
         for (row in 0 until rows) {
             val r0 = radius + depth * row / rows
             val count = (2 * PI * r0 / spacing).toInt()
             for (i in 0 until count) {
-                val angle = 2 * PI * (i + 0.5 * row + 0.6 * (rng.nextDouble() - 0.5)) / count
+                val angle = 2 * PI * (i + row.toDouble() / rows + 0.6 * (rng.nextDouble() - 0.5)) / count
                 val r = r0 + depth / rows * rng.nextDouble()
                 val height = minHeight + (maxHeight - minHeight) * rng.nextDouble()
                 val kind = if (rng.nextDouble() < conifers) Kind.CONIFER else Kind.LEAFY
