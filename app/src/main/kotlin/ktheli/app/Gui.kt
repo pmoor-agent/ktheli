@@ -121,6 +121,9 @@ object Gui {
         return if (changed) v[0].toDouble() else null
     }
 
+    fun radioButton(label: String, active: Boolean, name: String = traceName(label)): Boolean =
+        ImGui.radioButton(label, active).also { UiTrace.item(name) }
+
     fun selectable(label: String, selected: Boolean, name: String = traceName(label)): Boolean =
         ImGui.selectable(label, selected).also { UiTrace.item(name) }
 

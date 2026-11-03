@@ -24,6 +24,7 @@ class UiContext(
     val host: AppHost,
     val changeEnvironment: (EnvironmentSettings) -> Unit,
     val selectAircraft: (HelicopterModel) -> Unit,
+    val changeCamera: (CameraSettings) -> Unit,
 )
 
 /** Immediate-mode UI: call [draw] once per frame between ImGui newFrame/render. */
@@ -32,6 +33,7 @@ class Ui(private val ctx: UiContext) {
     val showTelemetry = ImBoolean(false)
     val controlsWindow = ControlsWindow(ctx.input, ctx.controls)
     val environmentWindow = EnvironmentWindow({ ctx.runner.environment }, ctx.changeEnvironment)
+    val cameraWindow = CameraWindow({ ctx.view.camera }, ctx.changeCamera)
     private val showDemo = ImBoolean(false)
     private var openAbout = false
 
@@ -47,6 +49,7 @@ class Ui(private val ctx: UiContext) {
         if (showHud.get()) drawHud()
         controlsWindow.draw(menuBarHeight)
         environmentWindow.draw(menuBarHeight)
+        cameraWindow.draw(menuBarHeight)
         if (showTelemetry.get()) drawTelemetryWindow()
         if (showDemo.get()) ImGui.showDemoWindow(showDemo)
         drawAbout()
@@ -63,7 +66,11 @@ class Ui(private val ctx: UiContext) {
             Action.ENVIRONMENT_DIALOG -> environmentWindow.open.toggle()
             Action.TELEMETRY -> showTelemetry.toggle()
             Action.HUD -> showHud.toggle()
-            Action.AUTO_ZOOM -> ctx.view.autoZoom = !ctx.view.autoZoom
+            Action.AUTO_ZOOM -> ctx.view.camera.let { ctx.changeCamera(it.copy(autoZoom = !it.autoZoom)) }
+            Action.CAMERA_MODE -> ctx.view.camera.let {
+                ctx.changeCamera(it.copy(mode = CameraMode.entries[(it.mode.ordinal + 1) % CameraMode.entries.size]))
+            }
+            Action.CAMERA_DIALOG -> cameraWindow.open.toggle()
             Action.SCREENSHOT -> ctx.host.requestScreenshot()
             Action.NEXT_DEVICE -> ctx.input.selectNextDevice()
             Action.QUIT -> ctx.host.exit()
@@ -137,7 +144,12 @@ class Ui(private val ctx: UiContext) {
         if (Gui.beginMenu("View")) {
             actionItem("HUD", Action.HUD, showHud.get())
             actionItem("Telemetry", Action.TELEMETRY, showTelemetry.get())
-            actionItem("Camera auto-zoom", Action.AUTO_ZOOM, ctx.view.autoZoom)
+            ImGui.separator()
+            CameraMode.entries.forEachIndexed { i, mode ->
+                val shortcut = if (i == 0) shortcut(Action.CAMERA_MODE) else ""
+                if (Gui.menuItem(mode.label, shortcut, ctx.view.camera.mode == mode)) ctx.changeCamera(ctx.view.camera.copy(mode = mode))
+            }
+            actionItem("Camera settings...", Action.CAMERA_DIALOG, cameraWindow.open.get())
             ImGui.separator()
             actionItem("Save screenshot", Action.SCREENSHOT)
             Gui.endMenu()

@@ -22,10 +22,15 @@ class AppCore(
     val runner = SimRunner(settings.model, settings.environment.toSettings())
     val input = InputController(store, joysticks, keyboard)
     val telemetry = Telemetry()
-    val view = ViewSettings()
+    val view = ViewSettings(settings.camera)
     var controls: Controls = Controls.NEUTRAL
         private set
-    val ui = Ui(UiContext(runner, input, view, telemetry, { controls }, host, ::changeEnvironment, ::selectAircraft))
+    val ui = Ui(UiContext(runner, input, view, telemetry, { controls }, host, ::changeEnvironment, ::selectAircraft, ::changeCamera))
+
+    fun changeCamera(camera: CameraSettings) {
+        view.camera = camera
+        save(settings.copy(camera = camera))
+    }
 
     /** Applies (immediately, as a simulation input) and remembers new environment settings. */
     fun changeEnvironment(environment: EnvironmentSettings) {

@@ -20,7 +20,6 @@ import com.badlogic.gdx.math.Vector3
 import com.badlogic.gdx.utils.Disposable
 import ktheli.physics.body.RigidBodyState
 import ktheli.physics.math.Vec3
-import kotlin.math.atan
 import kotlin.math.max
 
 /**
@@ -28,13 +27,14 @@ import kotlin.math.max
  */
 fun Vec3.toGdx() = Vector3(y.toFloat(), (-z).toFloat(), (-x).toFloat())
 
-/** The flying field (ground, grid, windsock), the pilot's-eye camera, and the current model's [HeliRenderer]. */
+/** The flying field (ground, grid, windsock), the camera ([CameraRig]), and the current model's [HeliRenderer]. */
 class Scene(private val view: ViewSettings) : Disposable {
     val camera = PerspectiveCamera(60f, 1f, 1f).apply {
-        position.set(PILOT_EYE)
-        near = 0.1f
+        position.set(CameraRig.PILOT_EYE.toGdx())
+        near = 0.05f
         far = 1000f
     }
+    private val rig = CameraRig()
 
     private val batch = ModelBatch()
     private val environment = Environment().apply {
@@ -111,16 +111,11 @@ class Scene(private val view: ViewSettings) : Disposable {
         val s = 2.2f * radius / (1f + max(0f, p.y) * 0.15f)
         shadow.transform.setToTranslation(p.x, 0.004f, p.z).scale(s, 1f, s)
 
-        // Pilot's-eye camera: fixed position, tracks the heli, zooms so it keeps a usable apparent size.
-        val distance = p.dst(camera.position)
-        val halfWidth = VISIBLE_HALF_WIDTH * radius / REFERENCE_RADIUS
-        camera.fieldOfView = if (view.autoZoom) {
-            Math.toDegrees(2.0 * atan(halfWidth / max(distance, 0.5f))).toFloat().coerceIn(12f, 65f)
-        } else {
-            FIXED_FOV
-        }
+        val pose = rig.update(state, visual.rotorRadius, view.camera, dt.toDouble())
+        camera.position.set(pose.position.toGdx())
+        camera.fieldOfView = pose.fovDegrees.toFloat()
         camera.up.set(Vector3.Y)
-        camera.lookAt(p)
+        camera.lookAt(pose.target.toGdx())
         camera.update()
 
         batch.begin(camera)
@@ -155,10 +150,6 @@ class Scene(private val view: ViewSettings) : Disposable {
     }
 
     private companion object {
-        val PILOT_EYE = Vector3(0f, 1.7f, 0f)
-        const val VISIBLE_HALF_WIDTH = 3.5f // m of scene visible either side of a 450 when zoomed
-        const val REFERENCE_RADIUS = 0.36f // ... scaled for other rotor sizes
-        const val FIXED_FOV = 50f
         val WINDSOCK = Vec3(9.0, -5.0, 0.0) // NED: 9 m ahead, 5 m to the left of the pilot
         const val WINDSOCK_HEIGHT = 3.0
         const val SOCK_LENGTH = 0.9f
