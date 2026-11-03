@@ -3,6 +3,7 @@ package ktheli.physics.heli
 import ktheli.physics.body.RigidBodyState
 import ktheli.physics.math.DMath
 import ktheli.physics.math.Vec3
+import ktheli.physics.random.Pcg32
 import ktheli.physics.sim.StateHash
 import kotlin.math.abs
 
@@ -25,9 +26,11 @@ import kotlin.math.abs
  *
  * with f the specific force at the hub (g-load). It contains centrifugal stiffening, the gyroscopic coupling
  * to body rates and the g-load on coning. Inflow is uniform from momentum theory (with dynamic lag and ground
- * effect) plus a Pitt-Peters fore-aft gradient in forward flight.
+ * effect) plus a Pitt-Peters fore-aft gradient in forward flight, corrected for steep descent by [Inflow].
+ * In the vortex ring state, seeded filtered noise perturbs the inflow and its gradients: the thrust loss,
+ * shudder and wobble of "settling with power".
  */
-class BladeElementRotor(private val p: MainRotorParams) : MainRotor {
+class BladeElementRotor(private val p: MainRotorParams, seed: Long = 1) : MainRotor {
     override val name = "blade element"
 
     private val blades = p.rotor.blades
@@ -47,6 +50,17 @@ class BladeElementRotor(private val p: MainRotorParams) : MainRotor {
     private val flap = DoubleArray(blades)
     private val flapRate = DoubleArray(blades)
     private var inflowMean = 0.0
+
+    // Vortex ring roughness: filtered noise on the uniform inflow and its fore-aft and lateral gradients.
+    private val rng = Pcg32.seeded(seed, stream = 0x565253L) // "VRS"
+    private var roughUniform = 0.0
+    private var roughLongitudinal = 0.0
+    private var roughLateral = 0.0
+    private var roughAmplitude = 0.0 // vh · intensity, m/s
+
+    /** 0..1, how deep in the vortex ring state the rotor is; for displays. */
+    var vortexRing = 0.0
+        private set
 
     // Display-only tip-path-plane estimates (low-passed multi-blade projections).
     private var tpBack = 0.0
@@ -105,7 +119,9 @@ class BladeElementRotor(private val p: MainRotorParams) : MainRotor {
                 val pos = f.radial * r
                 val velocity = vHub + (w cross pos) + f.tangential * (rotorSpeed * r * f.radialScale) + f.flapDir * (r * beta)
                 val along = (pos.x * dirX + pos.y * dirY) / radius
-                val inducedVelocity = inflowMean * (1.0 - skewGradient * along)
+                val rough = roughAmplitude * (ROUGH_UNIFORM * roughUniform +
+                    ROUGH_GRADIENT * (roughLongitudinal * pos.x + roughLateral * pos.y) / radius)
+                val inducedVelocity = inflowMean * (1.0 - skewGradient * along) + rough
                 val wind = Vec3(-velocity.x, -velocity.y, inducedVelocity - velocity.z)
                 val ut = -(wind dot f.tangential) // edgewise speed, positive for normal operation
                 val wn = wind dot f.normal // through the section, negative for normal inflow
@@ -145,11 +161,18 @@ class BladeElementRotor(private val p: MainRotorParams) : MainRotor {
         // Uniform inflow relaxes towards the momentum-theory value for the current thrust.
         val vHub = after.velocityBody + (after.angularVelocity cross hub) - air.wind
         val inplane = DMath.hypot(vHub.x, vHub.y)
-        val target = momentumInflow(loads.thrust, vHub.z, inplane, air.density) * groundEffect
+        val momentum = momentumInflow(loads.thrust, vHub.z, inplane, air.density)
+        val target = Inflow.correct(momentum, loads.thrust, vHub.z, inplane, air.density, area) * groundEffect
         val tipSpeed = maxOf(rotorSpeed, 1.0) * radius
         val lambda = maxOf(abs(inflowMean - vHub.z) / tipSpeed, 0.02)
         val tau = (0.849 / (4.0 * lambda * maxOf(rotorSpeed, 1.0))).coerceIn(0.005, 0.2)
         inflowMean += (target - inflowMean) * dt / tau
+
+        vortexRing = Inflow.vortexRingIntensity(loads.thrust, vHub.z, inplane, air.density, area)
+        roughAmplitude = vortexRing * Inflow.hoverInducedVelocity(loads.thrust, air.density, area)
+        roughUniform = rough(roughUniform, dt)
+        roughLongitudinal = rough(roughLongitudinal, dt)
+        roughLateral = rough(roughLateral, dt)
 
         // Flapping, per blade, semi-implicit Euler.
         val w = after.angularVelocity
@@ -180,6 +203,12 @@ class BladeElementRotor(private val p: MainRotorParams) : MainRotor {
         tpConing += (sum / blades - tpConing) * k
     }
 
+    /** Unit-variance first-order filtered noise with time constant [ROUGH_TAU]. */
+    private fun rough(x: Double, dt: Double): Double {
+        val next = x + dt / ROUGH_TAU * (rng.nextGaussian() * DMath.sqrt(2.0 * ROUGH_TAU / dt) - x)
+        return next
+    }
+
     /** Induced velocity from Glauert's relation `vi·√(u² + (vi − w)²) = T/(2ρA)` for a known thrust. */
     private fun momentumInflow(thrust: Double, axial: Double, inplane: Double, airDensity: Double): Double {
         val t = thrust / (2.0 * airDensity * area)
@@ -196,7 +225,7 @@ class BladeElementRotor(private val p: MainRotorParams) : MainRotor {
     }
 
     override fun hashInto(hash: StateHash) {
-        hash.add(azimuth).add(inflowMean)
+        hash.add(azimuth).add(inflowMean).add(rng.state).add(roughUniform).add(roughLongitudinal).add(roughLateral).add(roughAmplitude)
         for (b in 0 until blades) hash.add(flap[b]).add(flapRate[b])
     }
 
@@ -204,5 +233,8 @@ class BladeElementRotor(private val p: MainRotorParams) : MainRotor {
         val Z = Vec3(0.0, 0.0, 1.0)
         val MAX_FLAP = DMath.toRadians(20.0)
         const val DISPLAY_FILTER = 0.03 // s
+        const val ROUGH_TAU = 0.4 // s, correlation time of vortex ring unsteadiness
+        const val ROUGH_UNIFORM = 0.25 // inflow fluctuation, in vh at full intensity
+        const val ROUGH_GRADIENT = 0.35 // fore-aft / lateral inflow gradient fluctuation, in vh
     }
 }

@@ -133,6 +133,27 @@ abstract class HelicopterTest(private val factory: () -> Helicopter) {
         assertTrue(descent in 3.0..10.0, "steady descent: $descent m/s")
     }
 
+    /**
+     * Throttle hold in a vertical descent: after the initial dip, the air coming up through the disc settles
+     * the rotor at a steady headspeed (descending just past the turbulent-wake region, ~2 vh).
+     */
+    @Test
+    fun `vertical autorotation settles at a steady headspeed`() {
+        val f = HeliFlight()
+        f.fly(10.0, Controls(flightMode = 1))
+        f.fly(12.0, f.hoverPilot(120.0))
+        val rpm0 = f.rpm
+        val pilot = f.hoverPilot(120.0, Controls(flightMode = 1, throttleHold = true))
+        f.fly(12.0) { pilot(it).copy(collective = -0.75) } // hold curve: -2°
+        val settled = f.rpm
+        f.fly(2.0) { pilot(it).copy(collective = -0.75) }
+        f.report("vertical autorotation")
+        assertEquals(settled, f.rpm, 0.01 * settled) // steady, no longer bleeding
+        assertTrue(f.rpm > 0.65 * rpm0, "headspeed kept: ${f.rpm}")
+        assertTrue(-f.body.velocity.z in -9.0..-4.0, "descent ${-f.body.velocity.z} m/s")
+        assertTrue(abs(f.body.velocity.x) + abs(f.body.velocity.y) < 0.5, "straight down")
+    }
+
     @Test
     fun `throttle hold on the ground spins the rotor down within 20 seconds`() {
         for (stick in listOf(-1.0, -0.5, 0.0)) { // hold curve: -4°, 0°, +4° pitch

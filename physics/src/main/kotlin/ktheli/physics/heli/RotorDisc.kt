@@ -82,7 +82,8 @@ class RotorDisc(val params: RotorParams) {
     /**
      * Induced velocity where blade-element thrust and Glauert's momentum relation agree:
      * `vi·√(u² + (vi − w)²) = T(vi) / (2ρA)`. Solved with a fixed number of damped Newton steps from the
-     * current inflow state, so the result is deterministic and continuous from tick to tick.
+     * current inflow state, so the result is deterministic and continuous from tick to tick; then corrected
+     * for steep descent by [Inflow.correct].
      */
     fun equilibriumInflow(input: Input): Double {
         val omega = input.omega
@@ -101,7 +102,9 @@ class RotorDisc(val params: RotorParams) {
             val step = if (df > 1e-6) f / df else f * 0.1
             vi -= step.coerceIn(-MAX_NEWTON_STEP, MAX_NEWTON_STEP)
         }
-        return vi
+        // Steep descent: replace the (invalid) momentum branch with the empirical curve.
+        val thrust = thrust(input.collective, w, omega, vi, airDensity)
+        return Inflow.correct(vi, thrust, w, u, airDensity, area)
     }
 
     /** Pitt-Peters style time constant of the uniform inflow mode, clamped to a sensible range. */
