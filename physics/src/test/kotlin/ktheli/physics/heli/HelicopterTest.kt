@@ -86,6 +86,29 @@ class HelicopterTest {
         assertTrue(lowestRpm > 0.85 * rpmBefore, "governor holds headspeed")
     }
 
+    /** A full punch from hover: blade drag rises with angle of attack, the governor catches up. */
+    @Test
+    fun `full collective punch sags headspeed, release surges it`() {
+        val f = hovering()
+        val pilot = f.hoverPilot(5.0)
+        val target = f.heli.governorTargetRpm
+        var lowest = f.rpm
+        f.fly(1.0) { fl ->
+            lowest = minOf(lowest, fl.rpm)
+            pilot(fl).copy(collective = 1.0)
+        }
+        val afterPunch = f.rpm
+        var highest = 0.0
+        f.fly(1.0) { fl ->
+            highest = maxOf(highest, fl.rpm)
+            pilot(fl)
+        }
+        println("punch: target %.0f, lowest %.0f, after 1 s %.0f, release peak %.0f".format(target, lowest, afterPunch, highest))
+        assertTrue(lowest in 0.88 * target..0.96 * target, "noticeable sag")
+        assertEquals(target, afterPunch, 0.03 * target) // governor caught up
+        assertTrue(highest > 1.02 * target, "surge when the load comes off")
+    }
+
     /**
      * Throttle hold in forward flight: the rotor is driven by the air coming up through the disc. (Vertical
      * autorotation sits in the vortex-ring/turbulent-wake region, where momentum theory has no valid

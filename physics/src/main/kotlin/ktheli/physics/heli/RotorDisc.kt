@@ -27,7 +27,7 @@ class RotorDisc(val params: RotorParams, private val airDensity: Double = AIR_DE
 
     data class Output(
         val thrust: Double, // N
-        val power: Double, // W absorbed from the shaft (negative when windmilling)
+        val power: Double, // W absorbed from the shaft: κ·T·vi − T·w + profile (negative when windmilling)
         val torque: Double, // N·m on the shaft
         val equilibriumInflow: Double, // induced velocity the inflow state is relaxing towards, m/s
         val inflowRatio: Double, // (vi - w) / ΩR, through the disc
@@ -42,9 +42,9 @@ class RotorDisc(val params: RotorParams, private val airDensity: Double = AIR_DE
         val thrust = thrust(input.collective, input.axialVelocity, omega, vi)
 
         val mu = input.inplaneSpeed / tipSpeed
-        val profilePower = solidity * params.profileDrag / 8.0 * airDensity * area * tipSpeed * tipSpeed * tipSpeed *
+        val profilePower = solidity * sectionDrag(thrust, tipSpeed) / 8.0 * airDensity * area * tipSpeed * tipSpeed * tipSpeed *
             (1.0 + 4.6 * mu * mu)
-        val power = thrust * (vi - input.axialVelocity) + profilePower
+        val power = params.inducedPowerFactor * thrust * vi - thrust * input.axialVelocity + profilePower
         return Output(
             thrust = thrust,
             power = power,
@@ -53,6 +53,18 @@ class RotorDisc(val params: RotorParams, private val airDensity: Double = AIR_DE
             inflowRatio = (vi - input.axialVelocity) / tipSpeed,
             advanceRatio = mu,
         )
+    }
+
+    /**
+     * Mean section drag coefficient. The mean blade angle of attack follows from the thrust coefficient,
+     * `α ≈ 6·C_T / (σ·a)` (Leishman, Principles of Helicopter Aerodynamics).
+     */
+    fun sectionDrag(thrust: Double, tipSpeed: Double): Double {
+        val ct = thrust / (airDensity * area * tipSpeed * tipSpeed)
+        val alpha = abs(6.0 * ct / (solidity * params.liftSlope))
+        val stalled = alpha - params.stallAngle
+        return params.profileDrag + params.dragRise * alpha * alpha +
+            (if (stalled > 0.0) params.stallDrag * stalled * stalled else 0.0)
     }
 
     /** Blade-element thrust for a given induced velocity. */

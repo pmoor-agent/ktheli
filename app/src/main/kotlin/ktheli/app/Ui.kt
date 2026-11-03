@@ -158,7 +158,9 @@ class Ui(private val ctx: UiContext) {
             Gui.text(ctx.input.active?.let { "Input: ${it.name}" } ?: "Input: keyboard")
             helicopter?.let { heli ->
                 val mode = heli.transmitter.setup.modes[ctx.input.flightMode.coerceIn(0, heli.transmitter.setup.modes.lastIndex)]
-                Gui.text("%s   headspeed %.0f rpm".format(mode.name, heli.rotorRpm))
+                val target = heli.governorTargetRpm
+                val delta = if (target > 0.0) "  (%+.0f)".format(heli.rotorRpm - target) else ""
+                Gui.text("%s   headspeed %.0f rpm%s".format(mode.name, heli.rotorRpm, delta))
                 if (ctx.input.throttleHold) {
                     val key = ctx.input.keyFor(Action.THROTTLE_HOLD)?.label()?.let { " - $it to release" }.orEmpty()
                     Gui.textColored(1f, 0.5f, 0.2f, 1f, "THROTTLE HOLD$key")

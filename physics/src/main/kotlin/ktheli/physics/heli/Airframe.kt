@@ -5,13 +5,25 @@ import ktheli.physics.math.Mat3
 import ktheli.physics.math.Vec3
 import ktheli.physics.math.deg
 
-/** Blade geometry and airfoil of one rotor. */
+/**
+ * Blade geometry and airfoil of one rotor.
+ *
+ * Section drag grows with the mean blade angle of attack α: `Cd = Cd0 + dragRise·α²`, plus a steep
+ * `stallDrag·(α − stallAngle)²` past the stall onset, so over-pitching costs power and can bog the rotor.
+ *
+ * @property inducedPowerFactor κ, real rotors' induced power over ideal momentum theory (tip losses,
+ *   non-uniform inflow); typically 1.1–1.2
+ */
 data class RotorParams(
     val radius: Double, // m
     val chord: Double, // m
     val blades: Int,
     val liftSlope: Double, // per rad; ~5.5 at RC Reynolds numbers
     val profileDrag: Double, // Cd0
+    val dragRise: Double = 0.4, // per rad²
+    val stallAngle: Double = 9.0.deg, // mean blade angle of attack where drag starts rising steeply
+    val stallDrag: Double = 3.0, // per rad²
+    val inducedPowerFactor: Double = 1.15,
 )
 
 /**
@@ -139,8 +151,8 @@ object Airframes {
             battery = BatteryParams(cells = 3, capacityAh = 2.2, internalResistance = 0.045),
             esc = EscParams(
                 governorMaxRpm = 3600.0,
-                governorP = 0.004,
-                governorI = 0.04,
+                governorP = 0.0025, // a "medium" governor: ~6 % dip on a full punch, recovered in ~0.5 s
+                governorI = 0.015,
                 spoolUpSeconds = 8.0,
                 bailoutSeconds = 1.5,
             ),
