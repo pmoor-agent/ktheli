@@ -34,9 +34,12 @@ class KtheliApp : ApplicationAdapter() {
         val configDir = ProfileStore.configDir().also { Files.createDirectories(it) }
         imgui = ImGuiLayer(configDir.resolve("imgui.ini"))
         ui = Ui(UiContext(runner, input, scene, telemetry, { controls }, { screenshotRequested = true }))
-        System.getenv("KTHELI_SHOW")?.split(',')?.forEach { // dev hook for screenshots: KTHELI_SHOW=input,telemetry
+        // Dev hook for screenshots: KTHELI_SHOW=controls[:sticks|buttons|monitor],telemetry
+        System.getenv("KTHELI_SHOW")?.split(',')?.forEach {
             when (it.trim()) {
-                "input" -> ui.showInput.set(true)
+                "controls", "controls:sticks" -> ui.controlsWindow.show(ControlsWindow.Tab.STICKS)
+                "controls:buttons" -> ui.controlsWindow.show(ControlsWindow.Tab.BINDINGS)
+                "controls:monitor" -> ui.controlsWindow.show(ControlsWindow.Tab.MONITOR)
                 "telemetry" -> ui.showTelemetry.set(true)
             }
         }
@@ -44,16 +47,14 @@ class KtheliApp : ApplicationAdapter() {
         Gdx.input.inputProcessor = object : InputAdapter() {
             override fun keyDown(keycode: Int): Boolean {
                 if (imgui.wantsKeyboard) return false
-                val ctrl = Gdx.input.isKeyPressed(Keys.CONTROL_LEFT) || Gdx.input.isKeyPressed(Keys.CONTROL_RIGHT)
-                when {
-                    keycode == Keys.Q && ctrl -> Gdx.app.exit()
-                    keycode == Keys.F1 -> ui.showInput.set(!ui.showInput.get())
-                    keycode == Keys.F2 -> ui.showTelemetry.set(!ui.showTelemetry.get())
-                    keycode == Keys.F12 -> screenshotRequested = true
-                    keycode == Keys.P -> ui.togglePause()
-                    keycode == Keys.R || keycode == Keys.BACKSPACE -> ui.reset()
-                    else -> return input.keyDown(keycode)
-                }
+                fun down(a: Int, b: Int) = Gdx.input.isKeyPressed(a) || Gdx.input.isKeyPressed(b)
+                val action = input.keyDown(
+                    keycode,
+                    ctrl = down(Keys.CONTROL_LEFT, Keys.CONTROL_RIGHT),
+                    shift = down(Keys.SHIFT_LEFT, Keys.SHIFT_RIGHT),
+                    alt = down(Keys.ALT_LEFT, Keys.ALT_RIGHT),
+                )
+                action?.let(ui::perform)
                 return true
             }
         }
@@ -64,7 +65,9 @@ class KtheliApp : ApplicationAdapter() {
         val frameSeconds = (now - lastNanos) / 1e9
         lastNanos = now
 
-        controls = input.update(frameSeconds, keyboardEnabled = !imgui.wantsKeyboard)
+        val frame = input.update(frameSeconds, keyboardEnabled = !imgui.wantsKeyboard)
+        controls = frame.controls
+        frame.actions.forEach(ui::perform)
         runner.advance(frameSeconds, controls)
         telemetry.record(runner.sim.time, runner.sim.aircraft.body, controls)
 

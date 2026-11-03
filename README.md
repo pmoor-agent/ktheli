@@ -42,32 +42,46 @@ The window has a menu bar (Dear ImGui via [imgui-java](https://github.com/SpaiR/
 
 - **Sim**: pause/resume, reset, quit
 - **Aircraft**: model selection (toy heli for now)
-- **Input**: *Input setup…* (device, channel assignment, reverse/centered, calibration, raw axes) and device selection
+- **Input**: *Controls...* and device selection
 - **View**: HUD, *Telemetry* (live ImPlot charts), camera auto-zoom, screenshot
-- **Help**: keyboard reference, ImGui demo window, about
+- **Help**: controls, ImGui demo window, about
 
-Window layout persists in `~/.config/ktheli/imgui.ini`; input profiles are stored per device GUID in
-`~/.config/ktheli/input.json`.
+Menu shortcuts always show the current key bindings.
 
-### Keyboard
+### Controls dialog
+
+- **Sticks**: assign an axis to each flight channel (or clear it), reverse/centered toggles, live outputs, and
+  calibration. Calibration first learns each stick's resting jitter (keep sticks centered for 1.5 s); that
+  neutral band reads as exactly 0 and the remaining travel is rescaled to the full range. Then sweep all extremes.
+- **Buttons & keys**: bind every action to a keyboard key (with modifiers) and/or a controller button
+  (D-pad directions count as buttons). Digital flight actions drive channels that have no axis assigned;
+  collective up/down integrates, so e.g. two buttons can replace a spring-loaded collective stick.
+- **Monitor**: live raw axes (with learned neutral band) and buttons of the selected device.
+
+Window layout persists in `~/.config/ktheli/imgui.ini`; bindings and calibration in
+`~/.config/ktheli/input.json` (controller settings per device GUID).
+
+### Default keys
 
 | Key | Action |
 |-----|--------|
+| `W` / `S` | Collective up / down (`K` returns it to center) |
+| arrows | Cyclic |
+| `A` / `D` | Yaw |
 | `P` / `R` | Pause / reset |
-| `F1` / `F2` | Input setup / telemetry window |
+| `F1` / `F2` / `F3` | Controls dialog / telemetry / HUD |
+| `Z` | Camera auto-zoom |
 | `F12` | Save a screenshot to the working directory |
-| `C` | Start / finish calibration (center sticks first, then sweep all extremes) |
-| `1`–`4` | Assign collective / roll / pitch / yaw: press, then move that stick in the positive direction |
 | `Tab` | Next joystick |
-| `Esc` | Cancel calibration / assignment |
-| `W/S`, `A/D`, arrows | Keyboard fallback when no joystick is connected (`K` zeroes collective) |
 | `Ctrl+Q` | Quit |
+| `Esc` | Cancel calibration / assignment / capture (not rebindable) |
 
 ### Development hooks (environment variables)
 
 - `KTHELI_SCREENSHOT=out.png` (+ optional `KTHELI_SCREENSHOT_AFTER=seconds`, default 2): capture one frame, then exit.
-- `KTHELI_SHOW=input,telemetry`: open those windows at startup.
-- `KTHELI_FAKE_JOYSTICK=1`: add a synthetic joystick with sweeping axes, for working on input UI without hardware.
+- `KTHELI_SHOW=controls[:sticks|buttons|monitor],telemetry`: open those windows (and tab) at startup.
+- `KTHELI_FAKE_JOYSTICK=1`: add a synthetic joystick with sweeping axes and blinking buttons, for working on input UI
+  without hardware.
   Combine with `XDG_CONFIG_HOME=$(mktemp -d)` to keep it out of your real input profiles.
 - `KTHELI_NO_VSYNC=1`: disable vsync (capped at 240 fps), for compositors that throttle vsync'd windows.
 

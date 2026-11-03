@@ -7,10 +7,10 @@ import imgui.extension.implot.flag.ImPlotAxis
 import imgui.extension.implot.flag.ImPlotAxisFlags
 import imgui.extension.implot.flag.ImPlotCond
 import imgui.flag.ImGuiCond
-import imgui.flag.ImGuiTableFlags
 import imgui.flag.ImGuiWindowFlags
 import imgui.type.ImBoolean
-import ktheli.input.Channel
+import ktheli.input.Action
+import ktheli.input.CalibrationSession
 import ktheli.physics.sim.Controls
 
 /** Everything the UI can show or act on. */
@@ -26,11 +26,10 @@ class UiContext(
 /** Immediate-mode UI: call [draw] once per frame between ImGui newFrame/render. */
 class Ui(private val ctx: UiContext) {
     val showHud = ImBoolean(true)
-    val showInput = ImBoolean(false)
     val showTelemetry = ImBoolean(false)
+    val controlsWindow = ControlsWindow(ctx.input, ctx.controls)
     private val showDemo = ImBoolean(false)
     private var openAbout = false
-    private var openControlsHelp = false
 
     /** Height of the main menu bar in logical pixels, valid after [draw]. */
     var menuBarHeight = 0f
@@ -39,10 +38,38 @@ class Ui(private val ctx: UiContext) {
     fun draw() {
         drawMenuBar()
         if (showHud.get()) drawHud()
-        if (showInput.get()) drawInputWindow()
+        controlsWindow.draw(menuBarHeight)
         if (showTelemetry.get()) drawTelemetryWindow()
         if (showDemo.get()) ImGui.showDemoWindow(showDemo)
-        drawPopups()
+        drawAbout()
+    }
+
+    /** Executes a press-action, whether it came from the menu, a key, or a controller button. */
+    fun perform(action: Action) {
+        when (action) {
+            Action.PAUSE -> ctx.runner.paused = !ctx.runner.paused
+            Action.RESET -> {
+                ctx.runner.reset()
+                ctx.telemetry.clear()
+            }
+            Action.CONTROLS_DIALOG -> controlsWindow.open.toggle()
+            Action.TELEMETRY -> showTelemetry.toggle()
+            Action.HUD -> showHud.toggle()
+            Action.AUTO_ZOOM -> ctx.scene.autoZoom = !ctx.scene.autoZoom
+            Action.SCREENSHOT -> ctx.requestScreenshot()
+            Action.NEXT_DEVICE -> ctx.input.selectNextDevice()
+            Action.QUIT -> Gdx.app.exit()
+            Action.COLLECTIVE_ZERO -> ctx.input.digital.zeroCollective()
+            else -> {} // hold actions are polled, not performed
+        }
+    }
+
+    private fun ImBoolean.toggle() = set(!get())
+
+    private fun shortcut(action: Action) = ctx.input.keyFor(action)?.label().orEmpty()
+
+    private fun actionItem(label: String, action: Action, selected: Boolean = false) {
+        if (ImGui.menuItem(label, shortcut(action), selected)) perform(action)
     }
 
     private fun drawMenuBar() {
@@ -50,10 +77,10 @@ class Ui(private val ctx: UiContext) {
         menuBarHeight = ImGui.getWindowHeight()
 
         if (ImGui.beginMenu("Sim")) {
-            if (ImGui.menuItem(if (ctx.runner.paused) "Resume" else "Pause", "P")) togglePause()
-            if (ImGui.menuItem("Reset", "R")) reset()
+            actionItem(if (ctx.runner.paused) "Resume" else "Pause", Action.PAUSE)
+            actionItem("Reset", Action.RESET)
             ImGui.separator()
-            if (ImGui.menuItem("Quit", "Ctrl+Q")) Gdx.app.exit()
+            actionItem("Quit", Action.QUIT)
             ImGui.endMenu()
         }
         if (ImGui.beginMenu("Aircraft")) {
@@ -62,11 +89,11 @@ class Ui(private val ctx: UiContext) {
             ImGui.endMenu()
         }
         if (ImGui.beginMenu("Input")) {
-            ImGui.menuItem("Input setup…", "F1", showInput)
+            actionItem("Controls...", Action.CONTROLS_DIALOG, controlsWindow.open.get())
             ImGui.separator()
             val joysticks = ctx.input.joysticks
             if (joysticks.isEmpty()) {
-                ImGui.textDisabled("No joystick connected — keyboard active")
+                ImGui.textDisabled("No joystick connected - keyboard active")
             } else {
                 val active = ctx.input.active
                 joysticks.forEach { j ->
@@ -76,30 +103,21 @@ class Ui(private val ctx: UiContext) {
             ImGui.endMenu()
         }
         if (ImGui.beginMenu("View")) {
-            ImGui.menuItem("HUD", "", showHud)
-            ImGui.menuItem("Telemetry", "F2", showTelemetry)
-            if (ImGui.menuItem("Camera auto-zoom", "", ctx.scene.autoZoom)) ctx.scene.autoZoom = !ctx.scene.autoZoom
+            actionItem("HUD", Action.HUD, showHud.get())
+            actionItem("Telemetry", Action.TELEMETRY, showTelemetry.get())
+            actionItem("Camera auto-zoom", Action.AUTO_ZOOM, ctx.scene.autoZoom)
             ImGui.separator()
-            if (ImGui.menuItem("Save screenshot", "F12")) ctx.requestScreenshot()
+            actionItem("Save screenshot", Action.SCREENSHOT)
             ImGui.endMenu()
         }
         if (ImGui.beginMenu("Help")) {
-            if (ImGui.menuItem("Controls…")) openControlsHelp = true
+            actionItem("Controls...", Action.CONTROLS_DIALOG)
             ImGui.menuItem("ImGui demo", "", showDemo)
             ImGui.separator()
-            if (ImGui.menuItem("About ktheli…")) openAbout = true
+            if (ImGui.menuItem("About ktheli...")) openAbout = true
             ImGui.endMenu()
         }
         ImGui.endMainMenuBar()
-    }
-
-    fun togglePause() {
-        ctx.runner.paused = !ctx.runner.paused
-    }
-
-    fun reset() {
-        ctx.runner.reset()
-        ctx.telemetry.clear()
     }
 
     private fun drawHud() {
@@ -113,7 +131,7 @@ class Ui(private val ctx: UiContext) {
             val body = sim.aircraft.body
             ImGui.text("t %.2f s   tick %d   %d fps".format(sim.time, sim.tick, Gdx.graphics.framesPerSecond))
             ImGui.text("alt %.2f m   speed %.1f m/s".format(-body.position.z, body.velocity.length()))
-            ImGui.text(ctx.input.active?.let { "Input: ${it.name}" } ?: "Input: keyboard (W/S, A/D, arrows)")
+            ImGui.text(ctx.input.active?.let { "Input: ${it.name}" } ?: "Input: keyboard")
             if (ctx.runner.paused) ImGui.textColored(1f, 0.8f, 0.2f, 1f, "PAUSED")
             modePrompt()?.let { ImGui.textColored(1f, 0.8f, 0.2f, 1f, it) }
         }
@@ -121,122 +139,14 @@ class Ui(private val ctx: UiContext) {
     }
 
     private fun modePrompt(): String? = when (val m = ctx.input.mode) {
-        is InputController.Mode.Calibrating -> "Calibrating: move every stick to all extremes, then Finish (C)"
-        is InputController.Mode.Assigning -> "${m.channel.prompt}  (Esc cancels)"
+        is InputController.Mode.Calibrating -> when (m.session.phase) {
+            CalibrationSession.Phase.CENTER -> "Calibrating: keep sticks centered..."
+            CalibrationSession.Phase.EXTREMES -> "Calibrating: move every stick to all extremes, then Finish"
+        }
+        is InputController.Mode.AssigningAxis -> "${m.channel.prompt}  (Esc cancels)"
+        is InputController.Mode.CapturingKey -> "Press a key for \"${m.action.label}\"  (Esc cancels)"
+        is InputController.Mode.CapturingButton -> "Press a controller button for \"${m.action.label}\"  (Esc cancels)"
         InputController.Mode.Fly -> null
-    }
-
-    private fun drawInputWindow() {
-        ImGui.setNextWindowPos(20f, menuBarHeight + 120f, ImGuiCond.FirstUseEver)
-        ImGui.setNextWindowSize(560f, 520f, ImGuiCond.FirstUseEver)
-        if (!ImGui.begin("Input Setup", showInput)) {
-            ImGui.end()
-            return
-        }
-        val input = ctx.input
-        val active = input.active
-        val profile = input.activeProfile
-
-        if (active == null || profile == null) {
-            ImGui.textWrapped(
-                "No joystick detected. Plug in the transmitter dongle or a game controller; it appears here " +
-                    "automatically. Until then the keyboard flies: W/S collective, A/D yaw, arrows cyclic, K zeroes collective.",
-            )
-            ImGui.end()
-            return
-        }
-
-        if (ImGui.beginCombo("Device", active.name)) {
-            input.joysticks.forEach { j ->
-                if (ImGui.selectable("${j.name}##${j.jid}", j == active)) input.selectDevice(j.guid)
-            }
-            ImGui.endCombo()
-        }
-        ImGui.textDisabled("GUID ${active.guid}")
-
-        ImGui.separatorText("Channels")
-        val tableFlags = ImGuiTableFlags.Borders or ImGuiTableFlags.RowBg or ImGuiTableFlags.SizingStretchProp
-        if (ImGui.beginTable("channels", 6, tableFlags)) {
-            ImGui.tableSetupColumn("Channel")
-            ImGui.tableSetupColumn("Axis")
-            ImGui.tableSetupColumn("Reverse")
-            ImGui.tableSetupColumn("Centered")
-            ImGui.tableSetupColumn("Output", 0, 2.5f)
-            ImGui.tableSetupColumn("")
-            ImGui.tableHeadersRow()
-            val c = ctx.controls()
-            val outputs = mapOf(
-                Channel.COLLECTIVE to c.collective, Channel.ROLL to c.roll, Channel.PITCH to c.pitch, Channel.YAW to c.yaw,
-            )
-            Channel.entries.forEach { ch ->
-                val b = profile.bindings[ch]
-                ImGui.tableNextRow()
-                ImGui.tableNextColumn(); ImGui.text(ch.name.lowercase())
-                ImGui.tableNextColumn(); ImGui.text(b?.axis?.toString() ?: "—")
-                ImGui.tableNextColumn()
-                if (b != null && ImGui.checkbox("##rev$ch", b.reversed)) input.updateBinding(ch) { it.copy(reversed = !it.reversed) }
-                ImGui.tableNextColumn()
-                if (b != null && ImGui.checkbox("##ctr$ch", b.centered)) input.updateBinding(ch) { it.copy(centered = !it.centered) }
-                ImGui.tableNextColumn(); bar(outputs.getValue(ch))
-                ImGui.tableNextColumn()
-                val assigning = (input.mode as? InputController.Mode.Assigning)?.channel == ch
-                if (assigning) {
-                    if (ImGui.button("Cancel##as$ch")) input.cancel()
-                } else {
-                    ImGui.beginDisabled(input.mode != InputController.Mode.Fly)
-                    if (ImGui.button("Assign##as$ch")) input.startAssign(ch)
-                    ImGui.endDisabled()
-                }
-            }
-            ImGui.endTable()
-        }
-        ImGui.textDisabled("Assign: click, then move that stick up / right / forward.")
-        ImGui.textDisabled("Centered: spring-loaded stick, 0 at center (off for throttle-style).")
-
-        ImGui.separatorText("Calibration")
-        when (val m = input.mode) {
-            is InputController.Mode.Calibrating -> {
-                ImGui.textColored(1f, 0.8f, 0.2f, 1f, "Move every stick to all of its extremes, then click Finish.")
-                if (ImGui.button("Finish")) input.finishCalibration()
-                ImGui.sameLine()
-                if (ImGui.button("Cancel##cal")) input.cancel()
-                rawAxes(m)
-            }
-            else -> {
-                ImGui.text("Center all sticks (collective anywhere), then click Start.")
-                ImGui.beginDisabled(m != InputController.Mode.Fly)
-                if (ImGui.button("Start calibration")) input.startCalibration()
-                ImGui.endDisabled()
-                rawAxes(null)
-            }
-        }
-        if (input.status.isNotEmpty()) {
-            ImGui.separator()
-            ImGui.text(input.status)
-        }
-        ImGui.end()
-    }
-
-    private fun rawAxes(calibrating: InputController.Mode.Calibrating?) {
-        val active = ctx.input.active ?: return
-        val profile = ctx.input.activeProfile
-        if (ImGui.beginTable("axes", 3, ImGuiTableFlags.SizingStretchProp)) {
-            active.axes.forEachIndexed { i, v ->
-                ImGui.tableNextRow()
-                ImGui.tableNextColumn(); ImGui.text("axis $i")
-                ImGui.tableNextColumn(); bar(v.toDouble())
-                ImGui.tableNextColumn()
-                val bound = profile?.bindings?.filterValues { it.axis == i }?.keys?.joinToString { it.name.lowercase() }.orEmpty()
-                val travel = calibrating?.session?.travel(i)?.let { "travel %.2f".format(it) }
-                ImGui.textDisabled(travel ?: bound)
-            }
-            ImGui.endTable()
-        }
-    }
-
-    /** A centered bar for a value in [-1, 1]. */
-    private fun bar(v: Double) {
-        ImGui.progressBar(((v.coerceIn(-1.0, 1.0) + 1.0) / 2.0).toFloat(), -1f, 0f, "%+.3f".format(v))
     }
 
     private fun drawTelemetryWindow() {
@@ -263,47 +173,20 @@ class Ui(private val ctx: UiContext) {
         ImGui.end()
     }
 
-    private fun drawPopups() {
-        if (openAbout) { ImGui.openPopup("About ktheli"); openAbout = false }
-        if (openControlsHelp) { ImGui.openPopup("Controls"); openControlsHelp = false }
 
+    private fun drawAbout() {
+        if (openAbout) {
+            ImGui.openPopup("About ktheli")
+            openAbout = false
+        }
         val center = ImGui.getMainViewport().center
         ImGui.setNextWindowPos(center.x, center.y, ImGuiCond.Appearing, 0.5f, 0.5f)
         if (ImGui.beginPopupModal("About ktheli", ImGuiWindowFlags.AlwaysAutoResize)) {
-            ImGui.text("ktheli — an RC helicopter simulator")
-            ImGui.textDisabled("Kotlin · libGDX · Dear ImGui")
+            ImGui.text("ktheli - an RC helicopter simulator")
+            ImGui.textDisabled("Kotlin | libGDX | Dear ImGui")
             ImGui.spacing()
             ImGui.text("Deterministic fixed-step physics at ${ctx.runner.sim.tickRateHz} Hz.")
             ImGui.spacing()
-            if (ImGui.button("Close", 120f, 0f)) ImGui.closeCurrentPopup()
-            ImGui.endPopup()
-        }
-
-        ImGui.setNextWindowPos(center.x, center.y, ImGuiCond.Appearing, 0.5f, 0.5f)
-        if (ImGui.beginPopupModal("Controls", ImGuiWindowFlags.AlwaysAutoResize)) {
-            if (ImGui.beginTable("keys", 2, ImGuiTableFlags.RowBg)) {
-                listOf(
-                    "P" to "Pause / resume",
-                    "R" to "Reset",
-                    "F1" to "Input setup",
-                    "F2" to "Telemetry",
-                    "F12" to "Screenshot",
-                    "C" to "Start / finish calibration",
-                    "1–4" to "Assign collective / roll / pitch / yaw",
-                    "Tab" to "Next joystick",
-                    "Esc" to "Cancel calibration / assignment",
-                    "W / S" to "Keyboard collective up / down",
-                    "A / D" to "Keyboard yaw",
-                    "Arrows" to "Keyboard cyclic",
-                    "K" to "Zero keyboard collective",
-                    "Ctrl+Q" to "Quit",
-                ).forEach { (key, what) ->
-                    ImGui.tableNextRow()
-                    ImGui.tableNextColumn(); ImGui.text(key)
-                    ImGui.tableNextColumn(); ImGui.text(what)
-                }
-                ImGui.endTable()
-            }
             if (ImGui.button("Close", 120f, 0f)) ImGui.closeCurrentPopup()
             ImGui.endPopup()
         }
