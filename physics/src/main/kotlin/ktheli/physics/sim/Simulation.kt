@@ -1,6 +1,7 @@
 package ktheli.physics.sim
 
 import ktheli.physics.env.Environment
+import ktheli.physics.env.Obstacles
 import ktheli.physics.model.AircraftModel
 
 /**
@@ -15,6 +16,8 @@ class Simulation(
     val aircraft: AircraftModel,
     val environment: Environment = Environment(),
     val tickRateHz: Int = DEFAULT_TICK_RATE_HZ,
+    /** The flying field's trees, poles etc. */
+    val obstacles: Obstacles = Obstacles.NONE,
 ) {
     val dt: Double = 1.0 / tickRateHz
 
@@ -23,15 +26,22 @@ class Simulation(
 
     val time: Double get() = tick.toDouble() / tickRateHz
 
+    /** Set when the aircraft crashes; from then on the simulation is over and [step] does nothing. */
+    var crash: Crash? = null
+        private set
+
     fun step(controls: Controls) {
+        if (crash != null) return
         val body = aircraft.body
         environment.step(body.position, body.velocity, dt)
         aircraft.step(controls, environment, dt)
         tick++
+        aircraft.impact(obstacles)?.let { crash = Crash(tick, time, it) }
     }
 
     fun stateHash(): Long {
         val h = StateHash().add(tick)
+        crash?.let { h.add(it.tick).add(it.impact.speed).add(it.impact.point) }
         aircraft.hashInto(h)
         environment.hashInto(h)
         return h.value

@@ -139,6 +139,12 @@ object HeliAcoustics {
         )
     }
 
+    /** After a crash: the model falls silent, apart from the impact itself (louder the faster it hit). */
+    fun crashed(params: SoundParams, impacts: Int, impactSpeed: Double): SoundParams = params.copy(
+        rotorLevel = 0.0, rotorNoise = 0.0, tailLevel = 0.0, motorLevel = 0.0, gearLevel = 0.0,
+        impacts = impacts, impactLevel = (0.35 + impactSpeed / 30.0).coerceIn(0.35, 1.0),
+    )
+
     private const val RPM_TO_RAD = 2.0 * Math.PI / 60.0
 
     private fun smoothstep(x: Double): Double {

@@ -129,6 +129,15 @@ settings persist with the others.
 shear, plus temperature and field elevation (air density). Presets range from *Calm* to *Gusty* and *High & hot*.
 The windsock left of the field and the HUD show the wind; settings persist in `~/.config/ktheli/settings.json`.
 
+**Crashes:** each airframe has rough crash geometry: a box around canopy and frame, boom, fin, the tail rotor
+disc and the main rotor's tip circle following the tip-path plane. Any of those touching the ground, or any part
+touching a tree or the windsock pole (each field supplies its obstacles), ends the flight, as does sinking onto
+the skids faster than 3 m/s. The model freezes at the impact with a banner saying what happened (*Main rotor
+strike*, *Tail strike*, *Hard landing*, *Hit a tree*, ...); pause is locked. It resets after a few seconds, or
+on `R` (*Sim → After a crash*). A reset keeps your flight mode and throttle hold switches where they are, like a
+real radio, so you can take off again right away; switching aircraft or field arms throttle hold. Crash
+detection is part of the deterministic simulation.
+
 **Sound:** generated live from the simulation, not from recordings: the main rotor's thump at the blade-passage
 frequency (sharper "slap" when heavily loaded or in vortex ring state), blade swish, the tail rotor's buzz, the
 motor's whine (its pitch follows motor RPM, so you hear the RPM sag on a punch; silent in throttle hold, where
@@ -246,4 +255,5 @@ CPU rasterizer of the UI alone.
    still open: dual rates, per-mode tuning UI
 5. ✅ Wind (shear, Dryden turbulence, gusts), air density, vortex ring state
 6. ✅ Sound, telemetry plots, performance monitor; models and flying fields are selectable
-7. Replays, crash physics, more airframes, dual rates and per-mode tuning UI
+7. ✅ Crash detection (collision geometry, field obstacles, terminal crashed state, auto reset)
+8. Replays, more airframes, dual rates and per-mode tuning UI

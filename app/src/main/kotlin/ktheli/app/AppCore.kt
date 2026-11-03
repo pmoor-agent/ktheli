@@ -32,15 +32,26 @@ class AppCore(
         private set
     var sound: SoundSettings = settings.sound
         private set
+    var crashSettings: CrashSettings = settings.crash
+        private set
     val ui = Ui(
         UiContext(
             runner, input, view, telemetry, { controls }, host, ::changeEnvironment, ::selectAircraft, ::changeCamera, ::selectField,
-            { profiler }, { sound }, ::changeSound,
+            { profiler }, { sound }, ::changeSound, { crashSettings }, ::changeCrashSettings,
         ),
     )
 
     /** Where the sound is heard: the renderer moves it with the camera. Starts where the pilot stands. */
     var listener = Listener(runner.field.pilotEye, Vec3(0.0, 1.0, 0.0))
+
+    fun changeCrashSettings(crash: CrashSettings) {
+        crashSettings = crash
+        save(settings.copy(crash = crash))
+    }
+
+    /** Crashes so far this session; the sound plays an impact whenever it goes up. */
+    private var impacts = 0
+    private var lastCrash: ktheli.physics.sim.Crash? = null
 
     fun changeSound(sound: SoundSettings) {
         this.sound = sound
@@ -51,8 +62,10 @@ class AppCore(
     fun soundParams(): SoundParams {
         val body = runner.renderState()
         val wind = runner.sim.environment.windAt(listener.position).length()
-        val volume = if (sound.enabled && !runner.paused) sound.volume else 0.0
-        return HeliAcoustics.params(HeliAcoustics.source(runner.sim.aircraft), body.position, body.velocity, listener, wind, volume)
+        val crash = runner.crash
+        val volume = if (sound.enabled && (!runner.paused || crash != null)) sound.volume else 0.0
+        val params = HeliAcoustics.params(HeliAcoustics.source(runner.sim.aircraft), body.position, body.velocity, listener, wind, volume)
+        return if (crash == null) params.copy(impacts = impacts) else HeliAcoustics.crashed(params, impacts, crash.impact.speed)
     }
 
     fun selectField(field: FlyingField) {
@@ -89,6 +102,10 @@ class AppCore(
         controls = frame.controls
         frame.actions.forEach(ui::perform)
         profiler.ticks(profiler.measure(FrameProfiler.Section.PHYSICS) { runner.advance(frameSeconds, controls) })
+        val crash = runner.crash
+        if (crash != null && crash !== lastCrash) impacts++
+        lastCrash = crash
+        if (crash != null && crashSettings.autoReset && runner.crashedSeconds >= crashSettings.delaySeconds) ui.reset()
         telemetry.record(runner.sim.time, runner.sim.aircraft, controls)
     }
 

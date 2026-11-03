@@ -1,14 +1,19 @@
 package ktheli.physics.heli
 
 import ktheli.physics.env.Environment
+import ktheli.physics.env.Obstacles
 import ktheli.physics.math.DMath
 import ktheli.physics.math.Vec3
 import ktheli.physics.sim.Controls
 import ktheli.physics.sim.Simulation
 
 /** Test helper: flies a [Helicopter] with scripted pilot inputs and offers a few read-outs. */
-class HeliFlight(val heli: Helicopter = Helicopter(), environment: Environment = Environment()) {
-    val sim = Simulation(heli, environment)
+class HeliFlight(
+    val heli: Helicopter = Helicopter(),
+    environment: Environment = Environment(),
+    obstacles: Obstacles = Obstacles.NONE,
+) {
+    val sim = Simulation(heli, environment, obstacles = obstacles)
     val body get() = heli.body
     val altitude get() = -body.position.z - Helicopter.parkedAt(Vec3.ZERO).position.z.let { -it }
     val rpm get() = heli.rotorRpm

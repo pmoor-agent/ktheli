@@ -5,11 +5,13 @@ import ktheli.physics.body.RigidBodyState
 import ktheli.physics.body.Wrench
 import ktheli.physics.body.integrateRk4
 import ktheli.physics.env.Environment
+import ktheli.physics.env.Obstacles
 import ktheli.physics.math.DMath
 import ktheli.physics.math.Vec3
 import ktheli.physics.model.AircraftModel
 import ktheli.physics.model.Gauge
 import ktheli.physics.sim.Controls
+import ktheli.physics.sim.Impact
 import ktheli.physics.sim.StateHash
 import kotlin.math.abs
 
@@ -232,6 +234,59 @@ class Helicopter(
         Gauge("Inflow", "vortex ring (0-1)", "") { (mainRotor as? BladeElementRotor)?.vortexRing ?: 0.0 },
     )
 
+    // Crash geometry: the main rotor's tip circle sampled at TIP_SAMPLES azimuths, the tail rotor's rim in its
+    // (vertical) disc plane, plus the airframe's fixed points.
+    private val tipCos = DoubleArray(TIP_SAMPLES) { DMath.cos(DMath.TWO_PI * it / TIP_SAMPLES) }
+    private val tipSin = DoubleArray(TIP_SAMPLES) { DMath.sin(DMath.TWO_PI * it / TIP_SAMPLES) }
+    private val tailPoints = airframe.tailRotor.let { t ->
+        val r = t.rotor.radius
+        listOf(t.position, t.position + Vec3(r, 0.0, 0.0), t.position - Vec3(r, 0.0, 0.0), t.position + Vec3(0.0, 0.0, r), t.position - Vec3(0.0, 0.0, r))
+    }
+    private val fixedParts = listOf(
+        "Tail rotor strike" to tailPoints,
+        "Tail strike" to airframe.collision.fin + airframe.collision.boom,
+        "Fuselage hit the ground" to airframe.collision.fuselage,
+    )
+
+    override fun impact(obstacles: Obstacles): Impact? {
+        val s = body
+        fun world(p: Vec3) = s.position + s.attitude.rotate(p)
+        fun speed(p: Vec3) = (s.velocity + s.attitude.rotate(s.angularVelocity cross p)).length()
+
+        // Skids may touch the ground, but not too fast.
+        for (c in airframe.skids.contacts) {
+            val w = world(c)
+            obstacles.hit(w)?.let { return Impact("Hit ${it.name}", speed(c), w) }
+            if (w.z > 0.0) {
+                val sink = (s.velocity + s.attitude.rotate(s.angularVelocity cross c)).z
+                if (sink > airframe.collision.hardLanding) return Impact("Hard landing", sink, w)
+            }
+        }
+
+        // Main rotor tips on the tip-path plane: tilted back (front up) and right (right side down), coned up.
+        // They hit at the blade's own tip speed plus the body's motion.
+        val mr = airframe.mainRotor
+        val r = mr.rotor.radius
+        val tipSpeed = rotorSpeed * r
+        fun bladeSpeed(tip: Vec3) = DMath.sqrt(speed(tip) * speed(tip) + tipSpeed * tipSpeed)
+        for (i in 0 until TIP_SAMPLES) {
+            val up = mainRotor.coning + mainRotor.tiltBack * tipCos[i] - mainRotor.tiltRight * tipSin[i]
+            val tip = Vec3(r * tipCos[i], r * tipSin[i], -mr.hubHeight - r * up)
+            val w = world(tip)
+            obstacles.hit(w)?.let { return Impact("Main rotor hit ${it.name}", bladeSpeed(tip), w) }
+            if (w.z > 0.0) return Impact("Main rotor strike", bladeSpeed(tip), w)
+        }
+
+        for ((reason, points) in fixedParts) {
+            for (p in points) {
+                val w = world(p)
+                obstacles.hit(w)?.let { return Impact("Hit ${it.name}", speed(p), w) }
+                if (w.z > 0.0) return Impact(reason, speed(p), w)
+            }
+        }
+        return null
+    }
+
     override fun hashInto(hash: StateHash) {
         hash.add(body).add(rotorSpeed).add(tailInflow)
         mainRotor.hashInto(hash)
@@ -251,6 +306,7 @@ class Helicopter(
         const val BLADE_ELEMENT_PHASE = 18.0 // minimizes roll-pitch cross-coupling (measured in flight)
 
         private const val SLIP_REGULARIZATION = 0.05 // m/s; smooths Coulomb friction around zero slip
+        private const val TIP_SAMPLES = 16
 
         /** Resting on its skids at the given world position (z is ignored), with ~1 cm sag. */
         fun parkedAt(p: Vec3, airframe: Airframe = Airframes.class450): RigidBodyState {

@@ -26,9 +26,14 @@ object WorldView {
         val viewHeight = (backHeight - (menu * scale).toInt()).coerceAtLeast(1)
         scene.use(core.runner.model)
         scene.useField(core.runner.field)
+        val crashed = core.runner.crash != null // frozen at the impact: show the blades standing still
         val rotors = (core.runner.sim.aircraft as? Helicopter)?.let {
-            RotorPose(it.rotorRpm, it.tailRotorRpm, it.mainRotor.tiltBack, it.mainRotor.tiltRight, it.mainRotor.bladeAzimuth)
-        } ?: RotorPose(rpm = TOY_ROTOR_RPM, tailRpm = TOY_ROTOR_RPM * 4.5)
+            if (crashed) {
+                RotorPose(0.0, 0.0, it.mainRotor.tiltBack, it.mainRotor.tiltRight, it.mainRotor.bladeAzimuth)
+            } else {
+                RotorPose(it.rotorRpm, it.tailRotorRpm, it.mainRotor.tiltBack, it.mainRotor.tiltRight, it.mainRotor.bladeAzimuth)
+            }
+        } ?: RotorPose(rpm = if (crashed) 0.0 else TOY_ROTOR_RPM, tailRpm = if (crashed) 0.0 else TOY_ROTOR_RPM * 4.5)
         val sockWind = core.runner.sim.environment.windAt(scene.windsockTop)
         val binoculars = core.view.camera.binoculars.takeIf { it.enabled }?.let { b ->
             // Same layout the UI frames, converted from logical (top-left origin) to back-buffer pixels.

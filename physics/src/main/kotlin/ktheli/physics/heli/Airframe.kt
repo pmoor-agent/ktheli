@@ -122,6 +122,34 @@ data class FuselageParams(
     val finPosition: Vec3,
 )
 
+/**
+ * Rough crash geometry, body frame: points that must never touch the ground or an obstacle. The main and
+ * tail rotor discs are added from their parameters.
+ *
+ * @property fuselage canopy and frame corners
+ * @property boom points along the tail boom
+ * @property fin tips of the vertical fin
+ * @property hardLanding skid sink rate (m/s) at touchdown beyond which the landing gear breaks
+ */
+data class CollisionParams(
+    val fuselage: List<Vec3>,
+    val boom: List<Vec3>,
+    val fin: List<Vec3>,
+    val hardLanding: Double = 3.0,
+) {
+    companion object {
+        /** A box around canopy, frame and battery, above the skids; boom and fin of a 450. */
+        val class450 = CollisionParams(
+            fuselage = buildList {
+                for (x in listOf(-0.10, 0.20)) for (y in listOf(-0.045, 0.045)) for (z in listOf(-0.10, 0.07)) add(Vec3(x, y, z))
+                add(Vec3(0.24, 0.0, 0.0)) // canopy nose
+            },
+            boom = listOf(Vec3(-0.20, 0.0, -0.03), Vec3(-0.33, 0.0, -0.03)),
+            fin = listOf(Vec3(-0.50, 0.0, 0.07), Vec3(-0.49, 0.0, -0.10)),
+        )
+    }
+}
+
 /** Skid contact points (body frame) with per-point spring, damper and Coulomb friction. */
 data class SkidParams(val contacts: List<Vec3>, val stiffness: Double, val damping: Double, val friction: Double)
 
@@ -139,6 +167,7 @@ data class Airframe(
     val tailServo: ServoParams,
     val fuselage: FuselageParams,
     val skids: SkidParams,
+    val collision: CollisionParams = CollisionParams.class450,
 )
 
 object Airframes {

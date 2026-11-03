@@ -45,6 +45,9 @@ data class SoundParams(
     val pan: Double = 0.0,
     /** Master volume; 0 when muted or paused. */
     val volume: Double = 0.0,
+    /** Crashes so far: each increase plays an impact of [impactLevel] (0..1). */
+    val impacts: Int = 0,
+    val impactLevel: Double = 0.0,
 ) {
     companion object {
         val SILENT = SoundParams()

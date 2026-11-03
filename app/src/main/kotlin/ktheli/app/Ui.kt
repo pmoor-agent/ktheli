@@ -14,6 +14,7 @@ import ktheli.input.Action
 import ktheli.input.CalibrationSession
 import ktheli.physics.env.EnvironmentSettings
 import ktheli.physics.heli.Helicopter
+import ktheli.physics.sim.Crash
 import ktheli.physics.sim.Controls
 
 /** Everything the UI can show or act on. */
@@ -31,6 +32,8 @@ class UiContext(
     val profiler: () -> FrameProfiler,
     val sound: () -> SoundSettings,
     val changeSound: (SoundSettings) -> Unit,
+    val crashSettings: () -> CrashSettings,
+    val changeCrashSettings: (CrashSettings) -> Unit,
 )
 
 /** Immediate-mode UI: call [draw] once per frame between ImGui newFrame/render. */
@@ -54,6 +57,7 @@ class Ui(private val ctx: UiContext) {
         ctx.input.flightModeCount = helicopter?.transmitter?.setup?.modes?.size ?: 1
         drawMenuBar()
         if (showHud.get()) drawHud()
+        ctx.runner.crash?.let(::drawCrash)
         if (ctx.view.camera.binoculars.enabled) drawBinocularFrame()
         controlsWindow.draw(menuBarHeight)
         environmentWindow.draw(menuBarHeight)
@@ -67,7 +71,11 @@ class Ui(private val ctx: UiContext) {
     /** Executes a press-action, whether it came from the menu, a key, or a controller button. */
     fun perform(action: Action) {
         when (action) {
-            Action.PAUSE -> ctx.runner.paused = !ctx.runner.paused
+            Action.PAUSE -> if (ctx.runner.crash == null) {
+                ctx.runner.paused = !ctx.runner.paused
+            } else {
+                ctx.input.showStatus("Crashed: ${shortcut(Action.RESET).ifEmpty { "reset" }} to start again")
+            }
             Action.RESET -> reset()
             Action.FLIGHT_MODE -> ctx.input.cycleFlightMode()
             Action.THROTTLE_HOLD -> ctx.input.toggleThrottleHold()
@@ -95,10 +103,15 @@ class Ui(private val ctx: UiContext) {
 
     private fun ImBoolean.toggle() = set(!get())
 
-    private fun reset() {
+    /**
+     * Starts the flight over. The transmitter's switches stay where they are, as on a real radio, so after a
+     * crash you can take off again right away; [armSwitches] (a new model or field) goes back to throttle hold
+     * and the first flight mode.
+     */
+    fun reset(armSwitches: Boolean = false) {
         ctx.runner.reset()
         ctx.telemetry.clear()
-        ctx.input.resetSwitches()
+        if (armSwitches) ctx.input.resetSwitches()
     }
 
     private fun shortcut(action: Action) = ctx.input.keyFor(action)?.label().orEmpty()
@@ -114,6 +127,12 @@ class Ui(private val ctx: UiContext) {
         if (Gui.beginMenu("Sim")) {
             actionItem(if (ctx.runner.paused) "Resume" else "Pause", Action.PAUSE)
             actionItem("Reset", Action.RESET)
+            if (Gui.beginMenu("After a crash")) {
+                val c = ctx.crashSettings()
+                if (Gui.menuItem("Reset automatically", "", c.autoReset)) ctx.changeCrashSettings(c.copy(autoReset = !c.autoReset))
+                Gui.slider("Delay", c.delaySeconds, 1.0, 10.0, "%.0f s")?.let { ctx.changeCrashSettings(c.copy(delaySeconds = it)) }
+                Gui.endMenu()
+            }
             actionItem("Environment...", Action.ENVIRONMENT_DIALOG, environmentWindow.open.get())
             if (Gui.beginMenu("Sound")) {
                 val sound = ctx.sound()
@@ -141,7 +160,7 @@ class Ui(private val ctx: UiContext) {
             HelicopterModels.ALL.forEach { model ->
                 if (Gui.menuItem(model.name, "", model == ctx.runner.model)) {
                     ctx.selectAircraft(model)
-                    reset()
+                    reset(armSwitches = true)
                 }
                 if (ImGui.isItemHovered()) ImGui.setTooltip(model.description)
             }
@@ -151,7 +170,7 @@ class Ui(private val ctx: UiContext) {
             FlyingFields.ALL.forEach { field ->
                 if (Gui.menuItem(field.name, "", field == ctx.runner.field)) {
                     ctx.selectField(field)
-                    reset()
+                    reset(armSwitches = true)
                 }
                 if (ImGui.isItemHovered()) ImGui.setTooltip(field.description)
             }
@@ -226,6 +245,30 @@ class Ui(private val ctx: UiContext) {
             }
             if (ctx.runner.paused) Gui.textColored(1f, 0.8f, 0.2f, 1f, "PAUSED")
             modePrompt()?.let { Gui.textColored(1f, 0.8f, 0.2f, 1f, it) }
+        }
+        Gui.end()
+    }
+
+    /** A banner in the middle of the view: what happened, and how to go again. */
+    private fun drawCrash(crash: Crash) {
+        val io = ImGui.getIO()
+        val flags = ImGuiWindowFlags.NoDecoration or ImGuiWindowFlags.AlwaysAutoResize or ImGuiWindowFlags.NoSavedSettings or
+            ImGuiWindowFlags.NoFocusOnAppearing or ImGuiWindowFlags.NoNav or ImGuiWindowFlags.NoMove or ImGuiWindowFlags.NoMouseInputs
+        ImGui.setNextWindowPos(io.displaySizeX / 2, menuBarHeight + (io.displaySizeY - menuBarHeight) * 0.3f, ImGuiCond.Always, 0.5f, 0.5f)
+        ImGui.setNextWindowBgAlpha(0.6f)
+        if (Gui.begin("##crash", flags = flags)) {
+            ImGui.setWindowFontScale(2f)
+            Gui.textColored(1f, 0.3f, 0.25f, 1f, "CRASHED")
+            ImGui.setWindowFontScale(1f)
+            Gui.text("%s at %.1f m/s".format(crash.impact.reason, crash.impact.speed))
+            val key = shortcut(Action.RESET).ifEmpty { "Reset" }
+            val settings = ctx.crashSettings()
+            if (settings.autoReset) {
+                val left = (settings.delaySeconds - ctx.runner.crashedSeconds).coerceAtLeast(0.0)
+                Gui.textDisabled("Resetting in %.0f s - %s to reset now".format(kotlin.math.ceil(left), key))
+            } else {
+                Gui.textDisabled("$key to reset")
+            }
         }
         Gui.end()
     }

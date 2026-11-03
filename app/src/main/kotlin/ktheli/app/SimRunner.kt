@@ -5,6 +5,7 @@ import ktheli.physics.env.Environment
 import ktheli.physics.env.EnvironmentSettings
 import ktheli.physics.math.Quat
 import ktheli.physics.sim.Controls
+import ktheli.physics.sim.Crash
 import ktheli.physics.sim.Simulation
 
 /**
@@ -39,6 +40,13 @@ class SimRunner(
     /** While paused, wall time is discarded; the simulation simply doesn't tick. */
     var paused = false
 
+    /** The crash that ended this flight, if any: the simulation stays frozen at that moment until [reset]. */
+    val crash: Crash? get() = sim.crash
+
+    /** Wall-clock seconds since the crash (0 while flying). */
+    var crashedSeconds = 0.0
+        private set
+
     fun select(next: HelicopterModel) {
         model = next
         reset()
@@ -53,10 +61,15 @@ class SimRunner(
         sim = newSim()
         previous = sim.aircraft.body
         accumulatorTicks = 0.0
+        crashedSeconds = 0.0
     }
 
     /** Advances by [realSeconds] of wall time using [controls] for every tick in this frame; returns the ticks run. */
     fun advance(realSeconds: Double, controls: Controls): Int {
+        if (sim.crash != null) {
+            crashedSeconds += realSeconds
+            return 0
+        }
         if (paused) return 0
         accumulatorTicks += realSeconds.coerceAtMost(MAX_FRAME_SECONDS) * sim.tickRateHz
         var ticks = 0
@@ -65,6 +78,12 @@ class SimRunner(
             sim.step(controls)
             accumulatorTicks -= 1.0
             ticks++
+            if (sim.crash != null) {
+                // Show exactly the moment of impact.
+                previous = sim.aircraft.body
+                accumulatorTicks = 0.0
+                break
+            }
         }
         return ticks
     }
@@ -90,7 +109,7 @@ class SimRunner(
 
     private fun newSim(): Simulation {
         val seed = ++flights
-        return Simulation(model.create(field.start, seed), Environment(environment, seed = seed))
+        return Simulation(model.create(field.start, seed), Environment(environment, seed = seed), obstacles = field.obstacles)
     }
 
     private companion object {
