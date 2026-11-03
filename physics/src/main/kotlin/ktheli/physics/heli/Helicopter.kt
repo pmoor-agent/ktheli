@@ -197,6 +197,13 @@ class Helicopter(
     val mainThrust: Double get() = last.main.thrust
     val tailThrust: Double get() = last.tail.thrust
 
+    // Read-only views for sound and displays.
+    val motorRpm: Double get() = rotorRpm * airframe.motor.gearRatio
+    val motorCurrent: Double get() = drivetrain.motorCurrent
+    val escDuty: Double get() = drivetrain.duty
+    val mainRotorPower: Double get() = last.main.power
+    val airspeed: Double get() = last.airspeed
+
     override val gauges: List<Gauge> = listOf(
         Gauge("Rotor", "headspeed", "rpm") { rotorRpm },
         Gauge("Rotor", "governor target", "rpm") { governorTargetRpm },

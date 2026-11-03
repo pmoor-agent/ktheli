@@ -12,6 +12,8 @@ fun main() {
         useVsync(vsync)
         setForegroundFPS(if (vsync) 0 else 240)
         setBackBufferConfig(8, 8, 8, 8, 24, 0, 4) // 4x MSAA
+        // Streaming sound: 8 buffers of 1024 bytes (256 stereo frames) = ~46 ms of latency.
+        setAudioConfig(16, 1024, 8)
     }
     Lwjgl3Application(KtheliApp(), config)
 }

@@ -27,6 +27,7 @@ object DefaultKeys {
         Action.CAMERA_MODE to KeyChord(Keys.V),
         Action.CAMERA_DIALOG to KeyChord(Keys.F5),
         Action.PERFORMANCE to KeyChord(Keys.F6),
+        Action.SOUND to KeyChord(Keys.M),
         Action.BINOCULARS to KeyChord(Keys.B),
         Action.AUTO_ZOOM to KeyChord(Keys.Z),
         Action.SCREENSHOT to KeyChord(Keys.F12),
