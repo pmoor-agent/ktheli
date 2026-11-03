@@ -7,7 +7,10 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-class HelicopterTest {
+/** Flight tests, run against both main rotor models. */
+abstract class HelicopterTest(private val factory: () -> Helicopter) {
+    private fun HeliFlight() = HeliFlight(factory())
+
     @Test
     fun `spools up on the ground in normal mode and stays put`() {
         val f = HeliFlight()
@@ -141,3 +144,7 @@ class HelicopterTest {
         assertEquals(run(), run())
     }
 }
+
+class DiscHelicopterTest : HelicopterTest({ Helicopter.disc450(seed = 1) })
+
+class BladeElementHelicopterTest : HelicopterTest({ Helicopter.bladeElement450(seed = 1) })

@@ -55,21 +55,28 @@ class DeterminismTest {
         assertEquals(GOLDEN, hash, "Golden hash changed: 0x%016x".format(hash))
     }
 
-    @Test
-    fun `golden helicopter hash`() {
-        val sim = Simulation(Helicopter(seed = 7))
+    private fun flyHelicopter(heli: Helicopter): Long {
+        val sim = Simulation(heli)
         val rng = Pcg32.seeded(99)
         var c = Controls(flightMode = 1)
         repeat(6_000) { i ->
             if (i % 40 == 0) c = c.copy(collective = if (i > 4000) 0.5 else 0.0, roll = 0.2 * rng.nextGaussian(), yaw = 0.2 * rng.nextGaussian())
             sim.step(c)
         }
-        val hash = sim.stateHash()
-        assertEquals(GOLDEN_HELI, hash, "Golden helicopter hash changed: 0x%016x".format(hash))
+        return sim.stateHash()
+    }
+
+    @Test
+    fun `golden helicopter hashes`() {
+        val disc = flyHelicopter(Helicopter.disc450(seed = 7))
+        val blades = flyHelicopter(Helicopter.bladeElement450(seed = 7))
+        assertEquals(GOLDEN_DISC, disc, "Golden disc helicopter hash changed: 0x%016x".format(disc))
+        assertEquals(GOLDEN_BLADES, blades, "Golden blade element helicopter hash changed: 0x%016x".format(blades))
     }
 
     private companion object {
-        val GOLDEN_HELI = 0x68c6f0381b9c8e33uL.toLong()
+        val GOLDEN_DISC = 0xd86d0586cdc4700fuL.toLong()
+        val GOLDEN_BLADES = 0x51c31dc6ad99ffe7uL.toLong()
         val GOLDEN = 0x953bafce4971c8f0uL.toLong()
     }
 }

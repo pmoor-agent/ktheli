@@ -2,6 +2,8 @@ package ktheli.app
 
 import com.badlogic.gdx.Input.Keys
 import ktheli.app.harness.uiTest
+import ktheli.physics.heli.BladeElementRotor
+import ktheli.physics.heli.FlappingDiscRotor
 import ktheli.physics.heli.Helicopter
 import ktheli.physics.model.ToyHeli
 import java.nio.file.Paths
@@ -55,8 +57,10 @@ class FlightTest {
     fun `aircraft can be switched from the menu`() = uiTest { ui ->
         ui.menu("Aircraft", SimRunner.AircraftType.TOY.label)
         assertIs<ToyHeli>(ui.core.runner.sim.aircraft)
+        ui.menu("Aircraft", SimRunner.AircraftType.HELI_450_DISC.label)
+        assertIs<FlappingDiscRotor>(assertIs<Helicopter>(ui.core.runner.sim.aircraft).mainRotor)
         ui.menu("Aircraft", SimRunner.AircraftType.HELI_450.label)
-        assertIs<Helicopter>(ui.core.runner.sim.aircraft)
+        assertIs<BladeElementRotor>(assertIs<Helicopter>(ui.core.runner.sim.aircraft).mainRotor)
         assertTrue(ui.core.input.throttleHold, "switching aircraft re-arms throttle hold")
     }
 

@@ -32,6 +32,14 @@ data class RotorParams(
  * @property hubStiffnessCentrifugal additional stiffness at [referenceSpeed], growing with Ω²
  * @property lockNumber ratio of aerodynamic to inertial blade forces; sets the flapping time constant 16/(γΩ)
  * @property inertia rotor plus drivetrain about the main shaft, kg·m²
+ *
+ * Blade element model only:
+ * @property bladeMass one blade, kg, spread evenly from [rootCutout] to the tip
+ * @property rootCutout start of the aerodynamic blade section, m from the shaft
+ * @property flapSpring flap stiffness of the head's dampers, per blade, N·m/rad
+ * @property flapDamping flap damping of the dampers, per blade, N·m·s/rad
+ * @property tipLoss fraction of the radius that produces lift (Prandtl-style tip loss)
+ * @property elements blade sections per blade
  */
 data class MainRotorParams(
     val rotor: RotorParams,
@@ -41,6 +49,13 @@ data class MainRotorParams(
     val referenceSpeed: Double, // rad/s
     val lockNumber: Double,
     val inertia: Double,
+    val airfoil: AirfoilParams = AirfoilParams(),
+    val bladeMass: Double = 0.023,
+    val rootCutout: Double = 0.045,
+    val flapSpring: Double = 10.0,
+    val flapDamping: Double = 0.002,
+    val tipLoss: Double = 0.97,
+    val elements: Int = 12,
 )
 
 /**
