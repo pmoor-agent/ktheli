@@ -1,0 +1,20 @@
+[versions]
+kotlin = "2.4.21"
+gdx = "1.14.2"
+# libGDX pins LWJGL 3.3.3, which predates JDK 25 ("Unsupported JNI version" warning); override it.
+lwjgl = "3.4.3"
+serialization = "1.12.0"
+junit = "6.1.3"
+
+[libraries]
+gdx = { module = "com.badlogicgames.gdx:gdx", version.ref = "gdx" }
+gdx-backend-lwjgl3 = { module = "com.badlogicgames.gdx:gdx-backend-lwjgl3", version.ref = "gdx" }
+gdx-platform = { module = "com.badlogicgames.gdx:gdx-platform", version.ref = "gdx" }
+serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization" }
+junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }
+junit-launcher = { module = "org.junit.platform:junit-platform-launcher" }
+
+[plugins]
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
