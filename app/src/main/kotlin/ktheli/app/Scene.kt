@@ -49,6 +49,9 @@ class Scene(private val view: ViewSettings) : Disposable {
     private val grid: ModelInstance
     private val heli: ModelInstance
     private val shadow: ModelInstance
+    private val windsockPole: ModelInstance
+    private val windsock: ModelInstance
+    private val sockDirection = Vector3(0f, -1f, 0f)
 
     init {
         val mb = ModelBuilder()
@@ -65,6 +68,16 @@ class Scene(private val view: ViewSettings) : Disposable {
         )
 
         heli = ModelInstance(buildHeli(mb, lit).also(models::add))
+
+        windsockPole = ModelInstance(
+            mb.createBox(0.05f, WINDSOCK_HEIGHT.toFloat(), 0.05f, Material(ColorAttribute.createDiffuse(Color.LIGHT_GRAY)), lit)
+                .also(models::add),
+        ).apply { transform.setToTranslation(WINDSOCK.toGdx().add(0f, WINDSOCK_HEIGHT.toFloat() / 2, 0f)) }
+        // A cone along +Y with its tip at +Y: the wide end is the sock's mouth at the pole.
+        windsock = ModelInstance(
+            mb.createCone(0.3f, SOCK_LENGTH, 0.3f, 16, Material(ColorAttribute.createDiffuse(Color(1f, 0.45f, 0.05f, 1f)), IntAttribute.createCullFace(GL20.GL_NONE)), lit)
+                .also(models::add),
+        )
 
         shadow = ModelInstance(
             mb.createCylinder(0.8f, 0.001f, 0.8f, 24, translucent(Color.BLACK, 0.35f), Usage.Position.toLong())
@@ -99,6 +112,22 @@ class Scene(private val view: ViewSettings) : Disposable {
         return mb.end()
     }
 
+    private val sockRotation = Quaternion()
+
+    /** Points the sock downwind; it hangs down in calm air and lifts to horizontal at ~8 m/s. */
+    private fun orientWindsock(wind: Vec3) {
+        val horizontal = Vec3(wind.x, wind.y, 0.0)
+        val speed = horizontal.length()
+        val droop = Math.toRadians(85.0) * (1.0 - (speed / 8.0).coerceIn(0.0, 1.0))
+        val dir = if (speed > 1e-6) horizontal / speed else Vec3.X
+        // NED direction: horizontal downwind component and a downward droop.
+        val ned = Vec3(dir.x * kotlin.math.cos(droop), dir.y * kotlin.math.cos(droop), kotlin.math.sin(droop))
+        if (speed > 1e-6 || droop > 0.0) sockDirection.set(ned.toGdx()).nor()
+        sockRotation.setFromCross(Vector3.Y, sockDirection)
+        val top = windsockTop.toGdx()
+        windsock.transform.set(top.add(sockDirection.cpy().scl(SOCK_LENGTH / 2)), sockRotation)
+    }
+
     private val tilt = Quaternion()
     private val tiltPart = Quaternion()
 
@@ -130,7 +159,12 @@ class Scene(private val view: ViewSettings) : Disposable {
     /** How to draw the main rotor: [spin] 0..1 fades it in, tilts (rad) follow the simulated tip-path plane. */
     class RotorView(val spin: Float, val tiltBack: Double = 0.0, val tiltRight: Double = 0.0)
 
-    fun render(state: RigidBodyState, rotor: RotorView, x: Int, y: Int, width: Int, height: Int) {
+    /** World position of the windsock's top, where the app should sample the wind for [render]. */
+    val windsockTop: Vec3 get() = Vec3(WINDSOCK.x, WINDSOCK.y, -WINDSOCK_HEIGHT)
+
+    /** [windAtSock] is the wind (world NED) at [windsockTop]. */
+    fun render(state: RigidBodyState, rotor: RotorView, windAtSock: Vec3, x: Int, y: Int, width: Int, height: Int) {
+        orientWindsock(windAtSock)
         setRotorOpacity(0.04f + 0.28f * rotor.spin.coerceIn(0f, 1f))
         tiltRotor(rotor.tiltBack, rotor.tiltRight)
         Gdx.gl.glViewport(x, y, width, height)
@@ -159,6 +193,8 @@ class Scene(private val view: ViewSettings) : Disposable {
         batch.render(ground, environment)
         batch.render(grid)
         batch.render(shadow)
+        batch.render(windsockPole, environment)
+        batch.render(windsock, environment)
         batch.render(heli, environment)
         batch.end()
     }
@@ -185,5 +221,8 @@ class Scene(private val view: ViewSettings) : Disposable {
         val PILOT_EYE = Vector3(0f, 1.7f, 0f)
         const val VISIBLE_HALF_WIDTH = 3.5f // m of scene visible either side of the heli when zoomed
         const val FIXED_FOV = 50f
+        val WINDSOCK = Vec3(9.0, -5.0, 0.0) // NED: 9 m ahead, 5 m to the left of the pilot
+        const val WINDSOCK_HEIGHT = 3.0
+        const val SOCK_LENGTH = 0.9f
     }
 }

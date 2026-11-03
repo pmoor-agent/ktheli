@@ -23,6 +23,7 @@ object DefaultKeys {
         Action.CONTROLS_DIALOG to KeyChord(Keys.F1),
         Action.TELEMETRY to KeyChord(Keys.F2),
         Action.HUD to KeyChord(Keys.F3),
+        Action.ENVIRONMENT_DIALOG to KeyChord(Keys.F4),
         Action.AUTO_ZOOM to KeyChord(Keys.Z),
         Action.SCREENSHOT to KeyChord(Keys.F12),
         Action.NEXT_DEVICE to KeyChord(Keys.TAB),

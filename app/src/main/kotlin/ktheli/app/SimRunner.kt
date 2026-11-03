@@ -1,6 +1,8 @@
 package ktheli.app
 
 import ktheli.physics.body.RigidBodyState
+import ktheli.physics.env.Environment
+import ktheli.physics.env.EnvironmentSettings
 import ktheli.physics.math.Quat
 import ktheli.physics.math.Vec3
 import ktheli.physics.heli.Helicopter
@@ -13,7 +15,10 @@ import ktheli.physics.sim.Simulation
  * Bridges wall-clock time to the fixed-step simulation. This is the only place real time enters;
  * the simulation itself only ever sees (controls, tick).
  */
-class SimRunner {
+class SimRunner(
+    aircraftType: AircraftType = AircraftType.HELI_450,
+    environment: EnvironmentSettings = EnvironmentSettings.CALM,
+) {
     /** The aircraft types the simulator offers; [create] parks a fresh one in front of the pilot. */
     enum class AircraftType(val label: String, val create: () -> AircraftModel) {
         HELI_450("450 class - blade element rotor", { Helicopter.bladeElement450(initial = Helicopter.parkedAt(START)) }),
@@ -21,8 +26,17 @@ class SimRunner {
         TOY("Toy heli (no rotor physics)", { ToyHeli(ToyHeli.parkedAt(START)) }),
     }
 
-    var aircraftType = AircraftType.HELI_450
+    var aircraftType = aircraftType
         private set
+
+    /** Current environment; changing it applies immediately, as a simulation input. */
+    var environment: EnvironmentSettings = environment
+        set(value) {
+            field = value
+            sim.environment.settings = value
+        }
+
+    private var flights = 0L // seeds turbulence differently for each flight, reproducibly within a session
     var sim = newSim()
         private set
     private var previous = sim.aircraft.body
@@ -72,7 +86,7 @@ class SimRunner {
         return (a * (1 - t) + bb * t).normalized()
     }
 
-    private fun newSim() = Simulation(aircraftType.create())
+    private fun newSim() = Simulation(aircraftType.create(), Environment(environment, seed = ++flights))
 
     private companion object {
         const val MAX_FRAME_SECONDS = 0.1 // drop time rather than spiral after a hitch

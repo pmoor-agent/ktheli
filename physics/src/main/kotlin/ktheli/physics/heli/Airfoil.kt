@@ -78,8 +78,11 @@ class Airfoil(val params: AirfoilParams = AirfoilParams()) {
     }
 
     companion object {
-        /** Kinematic viscosity of air at 15 °C, m²/s. */
-        const val AIR_VISCOSITY = 1.46e-5
+        /** Dynamic viscosity of air at 15 °C, Pa·s (nearly independent of pressure). */
+        const val AIR_DYNAMIC_VISCOSITY = 1.789e-5
+
+        /** Reynolds number of a section with chord [chord] in airflow [speed] at density [density]. */
+        fun reynolds(speed: Double, chord: Double, density: Double) = speed * chord * density / AIR_DYNAMIC_VISCOSITY
 
         /** Wraps an angle to [-π, π). */
         fun wrap(angle: Double): Double {

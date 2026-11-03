@@ -5,6 +5,7 @@ import imgui.extension.implot.ImPlot
 import ktheli.app.AppCore
 import ktheli.app.AppHost
 import ktheli.app.Joystick
+import ktheli.app.SettingsStore
 import ktheli.app.UiTrace
 import ktheli.app.applyKtheliStyle
 import ktheli.input.ProfileStore
@@ -38,10 +39,16 @@ class ScriptedJoystick(
  *
  * ImGui has global state: use one driver at a time and [close] it.
  */
-class UiDriver(val width: Int = 1280, val height: Int = 800) : AutoCloseable {
+class UiDriver(
+    val width: Int = 1280,
+    val height: Int = 800,
+    /** Where profiles and settings live; a fresh temp directory (deleted on [close]) unless given. */
+    configDir: Path? = null,
+) : AutoCloseable {
     val joystick = ScriptedJoystick()
     private val held = HashSet<Int>()
-    private val configDir: Path = Files.createTempDirectory("ktheli-ui")
+    private val ownsConfigDir = configDir == null
+    val configDir: Path = configDir ?: Files.createTempDirectory("ktheli-ui")
 
     var exitRequested = false
         private set
@@ -78,7 +85,8 @@ class UiDriver(val width: Int = 1280, val height: Int = 800) : AutoCloseable {
             joysticks = { if (joystick.connected) listOf(joystick.snapshot()) else emptyList() },
             keyboard = { it in held },
             host = host,
-            store = ProfileStore(configDir.resolve("input.json")),
+            store = ProfileStore(this.configDir.resolve("input.json")),
+            settingsStore = SettingsStore(this.configDir.resolve("settings.json")),
         )
         frame()
     }
@@ -210,7 +218,7 @@ class UiDriver(val width: Int = 1280, val height: Int = 800) : AutoCloseable {
         UiTrace.enabled = false
         ImPlot.destroyContext()
         ImGui.destroyContext()
-        configDir.toFile().deleteRecursively()
+        if (ownsConfigDir) configDir.toFile().deleteRecursively()
     }
 
     companion object {

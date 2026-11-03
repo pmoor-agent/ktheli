@@ -27,7 +27,7 @@ import kotlin.math.abs
  * to body rates and the g-load on coning. Inflow is uniform from momentum theory (with dynamic lag and ground
  * effect) plus a Pitt-Peters fore-aft gradient in forward flight.
  */
-class BladeElementRotor(private val p: MainRotorParams, private val airDensity: Double = RotorDisc.AIR_DENSITY) : MainRotor {
+class BladeElementRotor(private val p: MainRotorParams) : MainRotor {
     override val name = "blade element"
 
     private val blades = p.rotor.blades
@@ -76,9 +76,10 @@ class BladeElementRotor(private val p: MainRotorParams, private val airDensity: 
         val radialScale = cosBeta
     }
 
-    override fun loads(s: RigidBodyState, rotorSpeed: Double, pitches: Helicopter.BladePitches, groundEffect: Double): MainRotorLoads {
+    override fun loads(s: RigidBodyState, rotorSpeed: Double, pitches: Helicopter.BladePitches, groundEffect: Double, air: HubAir): MainRotorLoads {
         val w = s.angularVelocity
-        val vHub = s.velocityBody + (w cross hub)
+        val airDensity = air.density
+        val vHub = s.velocityBody + (w cross hub) - air.wind
         val inplane = DMath.hypot(vHub.x, vHub.y)
         // Pitt-Peters linear inflow: more inflow at the rear of the disc in forward flight (wake skew χ).
         var skewGradient = 0.0
@@ -114,7 +115,7 @@ class BladeElementRotor(private val p: MainRotorParams, private val airDensity: 
                 val alpha = theta + DMath.atan2(wn, ut)
                 val q = 0.5 * airDensity * u2 * chord * dr
                 val cl = if (lifting[k]) airfoil.cl(alpha) else 0.0
-                val cd = airfoil.cd(alpha, u * chord / Airfoil.AIR_VISCOSITY)
+                val cd = airfoil.cd(alpha, Airfoil.reynolds(u, chord, airDensity))
                 val windDir = (f.tangential * (-ut) + f.normal * wn) / u
                 val liftDir = f.radial cross windDir
                 val sectionForce = liftDir * (q * cl) + windDir * (q * cd)
@@ -136,14 +137,15 @@ class BladeElementRotor(private val p: MainRotorParams, private val airDensity: 
         pitches: Helicopter.BladePitches,
         specificForce: Vec3,
         groundEffect: Double,
+        air: HubAir,
         dt: Double,
     ) {
         val loads = start as BladeLoads
 
         // Uniform inflow relaxes towards the momentum-theory value for the current thrust.
-        val vHub = after.velocityBody + (after.angularVelocity cross hub)
+        val vHub = after.velocityBody + (after.angularVelocity cross hub) - air.wind
         val inplane = DMath.hypot(vHub.x, vHub.y)
-        val target = momentumInflow(loads.thrust, vHub.z, inplane) * groundEffect
+        val target = momentumInflow(loads.thrust, vHub.z, inplane, air.density) * groundEffect
         val tipSpeed = maxOf(rotorSpeed, 1.0) * radius
         val lambda = maxOf(abs(inflowMean - vHub.z) / tipSpeed, 0.02)
         val tau = (0.849 / (4.0 * lambda * maxOf(rotorSpeed, 1.0))).coerceIn(0.005, 0.2)
@@ -179,7 +181,7 @@ class BladeElementRotor(private val p: MainRotorParams, private val airDensity: 
     }
 
     /** Induced velocity from Glauert's relation `vi·√(u² + (vi − w)²) = T/(2ρA)` for a known thrust. */
-    private fun momentumInflow(thrust: Double, axial: Double, inplane: Double): Double {
+    private fun momentumInflow(thrust: Double, axial: Double, inplane: Double, airDensity: Double): Double {
         val t = thrust / (2.0 * airDensity * area)
         var v = inflowMean
         if (abs(v) < 0.1) v = DMath.sqrt(abs(t)) * (if (t < 0.0) -1.0 else 1.0)

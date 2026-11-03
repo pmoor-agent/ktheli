@@ -5,6 +5,7 @@ import ktheli.physics.body.MassProperties
 import ktheli.physics.body.RigidBodyState
 import ktheli.physics.body.Wrench
 import ktheli.physics.body.integrateRk4
+import ktheli.physics.env.Environment
 import ktheli.physics.math.DMath
 import ktheli.physics.math.Mat3
 import ktheli.physics.math.Vec3
@@ -34,11 +35,11 @@ class ToyHeli(initial: RigidBodyState = parkedAt(Vec3.ZERO)) : AircraftModel {
     private val groundDamping = 2.0 * DMath.sqrt(groundStiffness * mp.mass)
     private val groundFriction = 3.0 // N per m/s of sliding
 
-    override fun step(controls: Controls, dt: Double) {
-        body = integrateRk4(body, mp, dt) { s -> wrench(s, controls) }
+    override fun step(controls: Controls, environment: Environment, dt: Double) {
+        body = integrateRk4(body, mp, dt) { s -> wrench(s, controls, environment) }
     }
 
-    private fun wrench(s: RigidBodyState, c: Controls): Wrench {
+    private fun wrench(s: RigidBodyState, c: Controls, env: Environment): Wrench {
         val thrust = Vec3(0.0, 0.0, -maxThrust * c.collective)
 
         // Stick pitch forward = nose down = negative body pitch rate.
@@ -47,7 +48,8 @@ class ToyHeli(initial: RigidBodyState = parkedAt(Vec3.ZERO)) : AircraftModel {
         val torque = mp.inertia * (rateError * rateGain)
 
         val v = s.velocity
-        val dragWorld = v * (-dragArea * v.length())
+        val air = v - env.windAt(s.position)
+        val dragWorld = air * (-dragArea * air.length())
 
         val penetration = s.position.z + SKID_DROP // skid depth below ground, positive when touching
         var groundWorld = Vec3.ZERO

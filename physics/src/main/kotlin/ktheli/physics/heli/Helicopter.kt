@@ -4,6 +4,7 @@ import ktheli.physics.body.MassProperties
 import ktheli.physics.body.RigidBodyState
 import ktheli.physics.body.Wrench
 import ktheli.physics.body.integrateRk4
+import ktheli.physics.env.Environment
 import ktheli.physics.math.DMath
 import ktheli.physics.math.Vec3
 import ktheli.physics.model.AircraftModel
@@ -68,6 +69,7 @@ class Helicopter(
     private var pitches = BladePitches(0.0, 0.0, 0.0, 0.0)
     private var last = Forces(
         Wrench.ZERO, MainRotorLoads(Vec3.ZERO, Vec3.ZERO, 0.0, 0.0, 0.0), RotorDisc.Output(0.0, 0.0, 0.0, 0.0, 0.0, 0.0), 1.0,
+        HubAir.STILL, 0.0,
     )
     private var motorTorque = 0.0
     private var electricalPower = 0.0
@@ -75,9 +77,16 @@ class Helicopter(
     /** Blade pitch angles in rad; cyclic as swashplate tilt (forward / right positive). */
     data class BladePitches(val collective: Double, val lateral: Double, val longitudinal: Double, val tail: Double)
 
-    private class Forces(val wrench: Wrench, val main: MainRotorLoads, val tail: RotorDisc.Output, val groundEffect: Double)
+    private class Forces(
+        val wrench: Wrench,
+        val main: MainRotorLoads,
+        val tail: RotorDisc.Output,
+        val groundEffect: Double,
+        val hubAir: HubAir,
+        val airspeed: Double,
+    )
 
-    override fun step(controls: Controls, dt: Double) {
+    override fun step(controls: Controls, environment: Environment, dt: Double) {
         receiver = transmitter.receive(controls)
         sensors = imu.read(body.angularVelocity, specificForce, rotorSpeed)
         if (tick % controllerTicks == 0L) commands = controller.update(sensors, receiver, controllerDt)
@@ -95,9 +104,9 @@ class Helicopter(
         motorTorque = electric.rotorTorque
         electricalPower = electric.electricalPower
 
-        val start = forces(body)
+        val start = forces(body, environment)
         val before = body
-        body = integrateRk4(body, mp, dt) { s -> forces(s).wrench }
+        body = integrateRk4(body, mp, dt) { s -> forces(s, environment).wrench }
         advanceRotorStates(start, before, dt)
         specificForce = start.wrench.force / mp.mass
         last = start
@@ -112,36 +121,41 @@ class Helicopter(
 
         val tailSpeed = rotorSpeed * airframe.tailRotor.gearRatio
         tailInflow += (f.tail.equilibriumInflow - tailInflow) * dt / tailDisc.inflowTimeConstant(tailSpeed, f.tail.inflowRatio)
-        mainRotor.advance(f.main, before, body, rotorSpeed, pitches, specificForce, f.groundEffect, dt)
+        mainRotor.advance(f.main, before, body, rotorSpeed, pitches, specificForce, f.groundEffect, f.hubAir, dt)
     }
 
-    private fun forces(s: RigidBodyState): Forces {
+    private fun forces(s: RigidBodyState, env: Environment): Forces {
         val omega = s.angularVelocity
         val v = s.velocityBody
         val mr = airframe.mainRotor
         val tr = airframe.tailRotor
+        val density = env.density
+        /** Wind at a body-frame point, in the body frame. */
+        fun wind(point: Vec3) = s.attitude.inverseRotate(env.windAt(s.position + s.attitude.rotate(point)))
 
         // Main rotor.
         val hubAltitude = -(s.position + s.attitude.rotate(hub)).z
         val groundEffect = RotorDisc.groundEffect(mr.rotor.radius, hubAltitude)
-        val main = mainRotor.loads(s, rotorSpeed, pitches, groundEffect)
+        val hubAir = HubAir(density, wind(hub))
+        val main = mainRotor.loads(s, rotorSpeed, pitches, groundEffect, hubAir)
         val mainForce = main.force
         // The motor turns the rotor clockwise seen from above (+z body); its reaction yaws the fuselage nose-left.
         val mainMoment = (hub cross mainForce) + main.hubMoment + Vec3(0.0, 0.0, -motorTorque)
 
         // Tail rotor on the right side, thrusting left (-y) to yaw the nose right.
-        val vTail = v + (omega cross tr.position)
+        val vTail = v + (omega cross tr.position) - wind(tr.position)
         val tail = tailDisc.evaluate(
-            RotorDisc.Input(pitches.tail, vTail.y, DMath.hypot(vTail.x, vTail.z), rotorSpeed * tr.gearRatio, tailInflow),
+            RotorDisc.Input(pitches.tail, vTail.y, DMath.hypot(vTail.x, vTail.z), rotorSpeed * tr.gearRatio, tailInflow, 1.0, density),
         )
         val tailForce = Vec3(0.0, -tail.thrust, 0.0)
         val tailMoment = tr.position cross tailForce
 
         // Fuselage drag and vertical fin.
         val fu = airframe.fuselage
-        val q = 0.5 * RotorDisc.AIR_DENSITY
-        val drag = Vec3(-q * fu.dragAreaX * v.x * abs(v.x), -q * fu.dragAreaY * v.y * abs(v.y), -q * fu.dragAreaZ * v.z * abs(v.z))
-        val vFin = v + (omega cross fu.finPosition)
+        val q = 0.5 * density
+        val vAir = v - wind(Vec3.ZERO)
+        val drag = Vec3(-q * fu.dragAreaX * vAir.x * abs(vAir.x), -q * fu.dragAreaY * vAir.y * abs(vAir.y), -q * fu.dragAreaZ * vAir.z * abs(vAir.z))
+        val vFin = v + (omega cross fu.finPosition) - wind(fu.finPosition)
         val finForce = Vec3(0.0, -q * fu.finArea * fu.finSideForceCoefficient * vFin.y * vFin.length(), 0.0)
         val finMoment = fu.finPosition cross finForce
 
@@ -149,7 +163,7 @@ class Helicopter(
 
         val force = mainForce + tailForce + drag + finForce + ground.force
         val moment = mainMoment + tailMoment + finMoment + ground.torque
-        return Forces(Wrench(force, moment), main, tail, groundEffect)
+        return Forces(Wrench(force, moment), main, tail, groundEffect, hubAir, vAir.length())
     }
 
     private fun skidContacts(s: RigidBodyState): Wrench {
@@ -198,6 +212,9 @@ class Helicopter(
         Gauge("Thrust", "main", "N") { last.main.thrust },
         Gauge("Thrust", "tail", "N") { last.tail.thrust },
         Gauge("Thrust", "weight", "N") { mp.mass * 9.80665 },
+        Gauge("Wind", "wind at rotor", "m/s") { last.hubAir.wind.length() },
+        Gauge("Wind", "vertical gust (up)", "m/s") { -body.attitude.rotate(last.hubAir.wind).z },
+        Gauge("Wind", "airspeed", "m/s") { last.airspeed },
         Gauge("Disc", "tilt back", "deg") { DMath.toDegrees(mainRotor.tiltBack) },
         Gauge("Disc", "tilt right", "deg") { DMath.toDegrees(mainRotor.tiltRight) },
         Gauge("Disc", "coning", "deg") { DMath.toDegrees(mainRotor.coning) },

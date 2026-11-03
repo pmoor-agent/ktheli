@@ -12,7 +12,7 @@ import kotlin.math.abs
  * direction (descent, for a main rotor), [Input.inplaneSpeed] the edgewise speed. Thrust is positive along
  * the thrust axis and may be negative (inverted flight); the induced velocity carries the same sign.
  */
-class RotorDisc(val params: RotorParams, private val airDensity: Double = AIR_DENSITY) {
+class RotorDisc(val params: RotorParams) {
     val area = DMath.PI * params.radius * params.radius
     val solidity = params.blades * params.chord / (DMath.PI * params.radius)
 
@@ -23,6 +23,7 @@ class RotorDisc(val params: RotorParams, private val airDensity: Double = AIR_DE
         val omega: Double, // rad/s
         val inducedVelocity: Double, // current (lagged) inflow state, m/s
         val groundEffect: Double = 1.0, // induced velocity factor, ≤ 1 near the ground
+        val airDensity: Double = AIR_DENSITY, // kg/m³
     )
 
     data class Output(
@@ -39,10 +40,11 @@ class RotorDisc(val params: RotorParams, private val airDensity: Double = AIR_DE
         if (omega < MIN_OMEGA) return Output(0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
         val tipSpeed = omega * params.radius
         val vi = input.inducedVelocity
-        val thrust = thrust(input.collective, input.axialVelocity, omega, vi)
+        val airDensity = input.airDensity
+        val thrust = thrust(input.collective, input.axialVelocity, omega, vi, airDensity)
 
         val mu = input.inplaneSpeed / tipSpeed
-        val profilePower = solidity * sectionDrag(thrust, tipSpeed) / 8.0 * airDensity * area * tipSpeed * tipSpeed * tipSpeed *
+        val profilePower = solidity * sectionDrag(thrust, tipSpeed, airDensity) / 8.0 * airDensity * area * tipSpeed * tipSpeed * tipSpeed *
             (1.0 + 4.6 * mu * mu)
         val power = params.inducedPowerFactor * thrust * vi - thrust * input.axialVelocity + profilePower
         return Output(
@@ -60,18 +62,18 @@ class RotorDisc(val params: RotorParams, private val airDensity: Double = AIR_DE
      * `α ≈ 6·C_T / (σ·a)` (Leishman, Principles of Helicopter Aerodynamics); the zero-lift part grows at low
      * Reynolds numbers (at 75 % radius) like [AirfoilParams] describes.
      */
-    fun sectionDrag(thrust: Double, tipSpeed: Double): Double {
+    fun sectionDrag(thrust: Double, tipSpeed: Double, airDensity: Double = AIR_DENSITY): Double {
         val ct = thrust / (airDensity * area * tipSpeed * tipSpeed)
         val alpha = abs(6.0 * ct / (solidity * params.liftSlope))
         val stalled = alpha - params.stallAngle
-        val reynolds = 0.75 * tipSpeed * params.chord / Airfoil.AIR_VISCOSITY
+        val reynolds = Airfoil.reynolds(0.75 * tipSpeed, params.chord, airDensity)
         val lowReynolds = if (reynolds >= LOW_RE_REFERENCE) 1.0 else DMath.sqrt(LOW_RE_REFERENCE / maxOf(reynolds, 1.0)).coerceAtMost(LOW_RE_MAX)
         return params.profileDrag * lowReynolds + params.dragRise * alpha * alpha +
             (if (stalled > 0.0) params.stallDrag * stalled * stalled else 0.0)
     }
 
     /** Blade-element thrust for a given induced velocity. */
-    fun thrust(collective: Double, axialVelocity: Double, omega: Double, vi: Double): Double {
+    fun thrust(collective: Double, axialVelocity: Double, omega: Double, vi: Double, airDensity: Double = AIR_DENSITY): Double {
         val r = params.radius
         val bladeVelocity = axialVelocity + 2.0 / 3.0 * omega * r * collective
         return (bladeVelocity - vi) * airDensity * omega * r * params.liftSlope * params.blades * params.chord * r / 4.0
@@ -89,6 +91,7 @@ class RotorDisc(val params: RotorParams, private val airDensity: Double = AIR_DE
         val u = input.inplaneSpeed
         val r = params.radius
         val bladeVelocity = w + 2.0 / 3.0 * omega * r * input.collective
+        val airDensity = input.airDensity
         val c = airDensity * omega * r * params.liftSlope * params.blades * params.chord * r / 4.0 / (2.0 * airDensity * area)
         var vi = input.inducedVelocity
         repeat(INFLOW_ITERATIONS) {
