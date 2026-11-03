@@ -130,12 +130,14 @@ shear, plus temperature and field elevation (air density). Presets range from *C
 The windsock left of the field and the HUD show the wind; settings persist in `~/.config/ktheli/settings.json`.
 
 **Sound:** generated live from the simulation, not from recordings: the main rotor's thump at the blade-passage
-frequency (sharper "slap" when heavily loaded or in vortex ring state), blade swish, the tail rotor's buzz, the
+frequency (sharper "slap" when heavily loaded or in vortex ring state), the blades' swish (bursts of broadband
+noise with each passage, growing with the square of the load, so pulling out of a dive "swooshes"), the
+downwash's low roar, the tail rotor's buzz, the
 motor's whine (its pitch follows motor RPM, so you hear the RPM sag on a punch; silent in throttle hold, where
 the one-way bearing lets the motor stop), gear mesh, and wind at the pilot. It is heard from the camera: louder
 up close, duller far away, panned left/right, with Doppler on fast passes. *Sim → Sound* has on/off (`M`) and
 volume; it's silent while paused. The audio thread only reads the simulation, so it never affects
-determinism. `FlightSoundTest` writes a scripted flight (spool-up, lift-off, punch, throttle hold) to
+determinism. `FlightSoundTest` writes a scripted flight (spool-up, lift-off, punch, dive and pull-up, throttle hold) to
 `app/build/sound/flight.wav`.
 
 **Performance:** *View → Performance* (`F6`) shows where each frame's time goes: input, physics, UI build,
