@@ -204,7 +204,7 @@ class ControlsWindow(private val input: InputController, private val controls: (
         ImGui.tableNextColumn()
         bindingCell(
             id = "btn",
-            label = input.buttonFor(action)?.let { "button $it" },
+            label = input.buttonFor(action)?.let { input.active?.buttonLabel(it) ?: "button $it" },
             capturing = (input.mode as? InputController.Mode.CapturingButton)?.action == action,
             prompt = "press a button...",
             enabled = hasDevice,
@@ -268,9 +268,9 @@ class ControlsWindow(private val input: InputController, private val controls: (
             ImGui.pushStyleColor(ImGuiCol.Button, color[0], color[1], color[2], 1f)
             ImGui.pushStyleColor(ImGuiCol.ButtonHovered, color[0], color[1], color[2], 1f)
             ImGui.pushStyleColor(ImGuiCol.ButtonActive, color[0], color[1], color[2], 1f)
-            Gui.button("%2d##mon$i".format(i), 34f, 0f, name = "button $i")
+            Gui.button("${active.buttonShortLabel(i)}##mon$i", 34f, 0f, name = active.buttonLabel(i))
             ImGui.popStyleColor(3)
-            ImGui.setItemTooltip(boundTo[i]?.label ?: "button $i (unbound)")
+            ImGui.setItemTooltip(active.buttonLabel(i) + (boundTo[i]?.let { ": ${it.label}" } ?: " (unbound)"))
         }
     }
 

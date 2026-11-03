@@ -2,6 +2,8 @@ package ktheli.app
 
 import com.badlogic.gdx.Input.Keys
 import ktheli.app.harness.uiTest
+import org.lwjgl.glfw.GLFW.GLFW_HAT_LEFT
+import org.lwjgl.glfw.GLFW.GLFW_HAT_UP
 import java.nio.file.Paths
 import kotlin.test.Test
 
@@ -31,10 +33,12 @@ class UiSnapshotTest {
 
         ui.click("Controls/Monitor")
         ui.joystick.buttons[3] = true // not button 9: that one now pauses
+        ui.joystick.hats[0] = GLFW_HAT_UP or GLFW_HAT_LEFT
         ui.joystick.axes[0] = -0.4f
         ui.frame()
         ui.snapshot(out.resolve("05-monitor.png"))
         ui.joystick.buttons[3] = false
+        ui.joystick.hats[0] = 0
         ui.joystick.axes[0] = 0f
 
         ui.press(Keys.F1)
