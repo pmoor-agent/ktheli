@@ -29,6 +29,7 @@ enum class Action(val label: String, val group: Group, val hold: Boolean = false
     HUD("HUD", Group.SIM),
     CAMERA_MODE("Camera view (cycle)", Group.SIM),
     CAMERA_DIALOG("Camera settings", Group.SIM),
+    BINOCULARS("Binoculars", Group.SIM),
     AUTO_ZOOM("Camera auto-zoom", Group.SIM),
     SCREENSHOT("Screenshot", Group.SIM),
     NEXT_DEVICE("Next joystick", Group.SIM),

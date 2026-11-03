@@ -79,7 +79,14 @@ class KtheliApp : ApplicationAdapter() {
             RotorPose(it.rotorRpm, it.tailRotorRpm, it.mainRotor.tiltBack, it.mainRotor.tiltRight, it.mainRotor.bladeAzimuth)
         } ?: RotorPose(rpm = TOY_ROTOR_RPM, tailRpm = TOY_ROTOR_RPM * 4.5)
         val sockWind = core.runner.sim.environment.windAt(scene.windsockTop)
-        scene.render(core.runner.renderState(), rotors, sockWind, 0, 0, bw, (bh - menuPixels).coerceAtLeast(1))
+        val viewHeight = (bh - menuPixels).coerceAtLeast(1)
+        val binoculars = core.view.camera.binoculars.takeIf { it.enabled }?.let { b ->
+            // Same layout the UI frames, converted from logical (top-left origin) to back-buffer pixels.
+            val scale = bh.toFloat() / Gdx.graphics.height.coerceAtLeast(1)
+            val r = Binoculars.layout(Gdx.graphics.width.toFloat(), Gdx.graphics.height - core.ui.menuBarHeight, core.ui.menuBarHeight, b)
+            Scene.Viewport((r.x * scale).toInt(), (bh - (r.y + r.height) * scale).toInt(), (r.width * scale).toInt(), (r.height * scale).toInt())
+        }
+        scene.render(core.runner.renderState(), rotors, sockWind, Scene.Viewport(0, 0, bw, viewHeight), binoculars)
         Gdx.gl.glViewport(0, 0, bw, bh)
 
         imgui.endFrame()

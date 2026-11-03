@@ -33,6 +33,20 @@ class CameraWindow(private val current: () -> CameraSettings, private val change
             Gui.slider("Smoothing##follow", s.followSmoothing, 0.1, 2.0, "%.2f s")?.let { change(s.copy(followSmoothing = it)) }
             Gui.slider("Field of view##follow", s.followFov, 30.0, 100.0, "%.0f deg")?.let { change(s.copy(followFov = it)) }
             Gui.textDisabled("Follows the nose heading; smoothing is how lazily it swings round.")
+
+            ImGui.separatorText("Binoculars")
+            val b = s.binoculars
+            fun binoculars(updated: BinocularSettings) = change(s.copy(binoculars = updated))
+            if (Gui.checkbox("Show binoculars", b.enabled)) binoculars(b.copy(enabled = !b.enabled))
+            Gui.textDisabled("A magnified inset from the same viewpoint, sized to the model.")
+            Gui.beginDisabled(!b.enabled)
+            Gui.slider("Size##bino", b.size, 0.15, 0.6, "%.2f of view")?.let { binoculars(b.copy(size = it)) }
+            Gui.slider("Framing##bino", b.framing, 0.2, 1.0, "model fills %.2f")?.let { binoculars(b.copy(framing = it)) }
+            Corner.entries.forEachIndexed { i, corner ->
+                if (i > 0) ImGui.sameLine()
+                if (Gui.radioButton("${corner.label}##bino", b.corner == corner)) binoculars(b.copy(corner = corner))
+            }
+            Gui.endDisabled()
         }
         Gui.end()
     }
