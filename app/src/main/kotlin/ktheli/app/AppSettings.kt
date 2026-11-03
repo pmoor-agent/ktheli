@@ -2,6 +2,7 @@ package ktheli.app
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import ktheli.app.sound.SoundSettings
 import ktheli.input.ProfileStore
 import ktheli.physics.env.AtmosphereSettings
 import ktheli.physics.env.EnvironmentSettings
@@ -19,6 +20,7 @@ data class AppSettings(
     val camera: CameraSettings = CameraSettings(),
     /** [FlyingField.id] of the selected field. */
     val field: String = FlyingFields.DEFAULT.id,
+    val sound: SoundSettings = SoundSettings(),
 ) {
     val model: HelicopterModel get() = HelicopterModels.byId(aircraft) ?: HelicopterModels.DEFAULT
     val flyingField: FlyingField get() = FlyingFields.byId(this.field) ?: FlyingFields.DEFAULT

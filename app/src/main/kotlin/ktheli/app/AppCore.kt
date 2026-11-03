@@ -1,8 +1,13 @@
 package ktheli.app
 
 import com.badlogic.gdx.Input.Keys
+import ktheli.app.sound.HeliAcoustics
+import ktheli.app.sound.Listener
+import ktheli.app.sound.SoundParams
+import ktheli.app.sound.SoundSettings
 import ktheli.input.ProfileStore
 import ktheli.physics.env.EnvironmentSettings
+import ktheli.physics.math.Vec3
 import ktheli.physics.sim.Controls
 
 /**
@@ -25,7 +30,30 @@ class AppCore(
     val view = ViewSettings(settings.camera)
     var controls: Controls = Controls.NEUTRAL
         private set
-    val ui = Ui(UiContext(runner, input, view, telemetry, { controls }, host, ::changeEnvironment, ::selectAircraft, ::changeCamera, ::selectField, { profiler }))
+    var sound: SoundSettings = settings.sound
+        private set
+    val ui = Ui(
+        UiContext(
+            runner, input, view, telemetry, { controls }, host, ::changeEnvironment, ::selectAircraft, ::changeCamera, ::selectField,
+            { profiler }, { sound }, ::changeSound,
+        ),
+    )
+
+    /** Where the sound is heard: the renderer moves it with the camera. Starts where the pilot stands. */
+    var listener = Listener(runner.field.pilotEye, Vec3(0.0, 1.0, 0.0))
+
+    fun changeSound(sound: SoundSettings) {
+        this.sound = sound
+        save(settings.copy(sound = sound))
+    }
+
+    /** What the model sounds like at the [listener] right now; silent when muted or paused. */
+    fun soundParams(): SoundParams {
+        val body = runner.renderState()
+        val wind = runner.sim.environment.windAt(listener.position).length()
+        val volume = if (sound.enabled && !runner.paused) sound.volume else 0.0
+        return HeliAcoustics.params(HeliAcoustics.source(runner.sim.aircraft), body.position, body.velocity, listener, wind, volume)
+    }
 
     fun selectField(field: FlyingField) {
         runner.select(field)

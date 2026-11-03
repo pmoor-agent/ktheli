@@ -1,5 +1,6 @@
 package ktheli.app
 
+import ktheli.app.sound.Listener
 import ktheli.physics.heli.Helicopter
 
 /** Draws the 3D world for the current frame below the menu bar; shared by the window and the headless tests. */
@@ -35,5 +36,6 @@ object WorldView {
             Scene.Viewport((r.x * scale).toInt(), (backHeight - (r.y + r.height) * scale).toInt(), (r.width * scale).toInt(), (r.height * scale).toInt())
         }
         scene.render(core.runner.renderState(), rotors, sockWind, Scene.Viewport(0, 0, backWidth, viewHeight), binoculars, frameSeconds)
+        scene.pose?.let { core.listener = Listener.facing(it.position, it.target, core.listener.right) }
     }
 }

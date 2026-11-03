@@ -74,6 +74,10 @@ class Scene(private val view: ViewSettings) : Disposable {
     /** World position of the windsock's top (current field), where the app should sample the wind for [render]. */
     val windsockTop: Vec3 get() = this.field?.windsockTop ?: Vec3.ZERO
 
+    /** The main camera of the last [render]: also where the sound is heard. */
+    var pose: CameraPose? = null
+        private set
+
     /** A viewport in back-buffer pixels, origin at the bottom left (OpenGL convention). */
     data class Viewport(val x: Int, val y: Int, val width: Int, val height: Int)
 
@@ -108,6 +112,7 @@ class Scene(private val view: ViewSettings) : Disposable {
         shadow.transform.setToTranslation(p.x, FieldRenderer.SHADOW_Y, p.z).scale(s, 1f, s)
 
         val pose = rig.update(state, visual.rotorRadius, view.camera, dt.toDouble(), field.field.pilotEye)
+        this.pose = pose
         camera.position.set(pose.position.toGdx())
         camera.fieldOfView = pose.fovDegrees.toFloat()
         camera.up.set(Vector3.Y)

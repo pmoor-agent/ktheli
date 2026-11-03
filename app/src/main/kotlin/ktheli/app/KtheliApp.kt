@@ -7,6 +7,8 @@ import com.badlogic.gdx.graphics.GL20
 import com.badlogic.gdx.graphics.Pixmap
 import com.badlogic.gdx.graphics.PixmapIO
 import com.badlogic.gdx.utils.ScreenUtils
+import ktheli.app.sound.AudioOutput
+import ktheli.app.sound.SoundParams
 import ktheli.input.ProfileStore
 import java.nio.file.Files
 
@@ -16,6 +18,8 @@ class KtheliApp : ApplicationAdapter() {
     private lateinit var imgui: ImGuiLayer
     private lateinit var core: AppCore
     private lateinit var gpuTimer: GpuTimer
+    private var audio: AudioOutput? = null
+    private var minimized = false
     private var lastNanos = 0L
     private var screenshotRequested = false
 
@@ -37,6 +41,8 @@ class KtheliApp : ApplicationAdapter() {
         core = AppCore(Joysticks, GdxKeyboard, host)
         gpuTimer = GpuTimer()
         scene = Scene(core.view)
+        audio = AudioOutput.open()
+        if (audio == null) core.input.showStatus("No sound output available")
         val configDir = ProfileStore.configDir().also { Files.createDirectories(it) }
         imgui = ImGuiLayer(configDir.resolve("imgui.ini"))
         // Dev hook for screenshots: KTHELI_SHOW=controls[:sticks|buttons|monitor],telemetry
@@ -82,6 +88,7 @@ class KtheliApp : ApplicationAdapter() {
         gpuTimer.end()
         core.profiler.gpu(gpuTimer.poll())
         core.profiler.endFrame(frameSeconds)
+        audio?.params = if (minimized) SoundParams.SILENT else core.soundParams()
 
         elapsed += frameSeconds
         if (screenshotRequested) {
@@ -108,7 +115,18 @@ class KtheliApp : ApplicationAdapter() {
         return file.path()
     }
 
+    // The window was minimized (libGDX stops rendering): fall silent until it's back.
+    override fun pause() {
+        minimized = true
+        audio?.params = SoundParams.SILENT
+    }
+
+    override fun resume() {
+        minimized = false
+    }
+
     override fun dispose() {
+        audio?.close()
         gpuTimer.close()
         imgui.dispose()
         scene.dispose()

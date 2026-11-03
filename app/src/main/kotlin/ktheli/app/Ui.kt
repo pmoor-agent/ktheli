@@ -9,6 +9,7 @@ import imgui.extension.implot.flag.ImPlotCond
 import imgui.flag.ImGuiCond
 import imgui.flag.ImGuiWindowFlags
 import imgui.type.ImBoolean
+import ktheli.app.sound.SoundSettings
 import ktheli.input.Action
 import ktheli.input.CalibrationSession
 import ktheli.physics.env.EnvironmentSettings
@@ -28,6 +29,8 @@ class UiContext(
     val changeCamera: (CameraSettings) -> Unit,
     val selectField: (FlyingField) -> Unit,
     val profiler: () -> FrameProfiler,
+    val sound: () -> SoundSettings,
+    val changeSound: (SoundSettings) -> Unit,
 )
 
 /** Immediate-mode UI: call [draw] once per frame between ImGui newFrame/render. */
@@ -81,6 +84,7 @@ class Ui(private val ctx: UiContext) {
             Action.BINOCULARS -> ctx.view.camera.let {
                 ctx.changeCamera(it.copy(binoculars = it.binoculars.copy(enabled = !it.binoculars.enabled)))
             }
+            Action.SOUND -> ctx.sound().let { ctx.changeSound(it.copy(enabled = !it.enabled)) }
             Action.SCREENSHOT -> ctx.host.requestScreenshot()
             Action.NEXT_DEVICE -> ctx.input.selectNextDevice()
             Action.QUIT -> ctx.host.exit()
@@ -111,6 +115,12 @@ class Ui(private val ctx: UiContext) {
             actionItem(if (ctx.runner.paused) "Resume" else "Pause", Action.PAUSE)
             actionItem("Reset", Action.RESET)
             actionItem("Environment...", Action.ENVIRONMENT_DIALOG, environmentWindow.open.get())
+            if (Gui.beginMenu("Sound")) {
+                val sound = ctx.sound()
+                actionItem("Sound on", Action.SOUND, sound.enabled)
+                Gui.slider("Volume", 100 * sound.volume, 0.0, 100.0, "%.0f%%")?.let { ctx.changeSound(sound.copy(volume = it / 100)) }
+                Gui.endMenu()
+            }
             ImGui.separator()
             actionItem("Throttle hold", Action.THROTTLE_HOLD, ctx.input.throttleHold)
             helicopter?.let { heli ->

@@ -129,6 +129,15 @@ settings persist with the others.
 shear, plus temperature and field elevation (air density). Presets range from *Calm* to *Gusty* and *High & hot*.
 The windsock left of the field and the HUD show the wind; settings persist in `~/.config/ktheli/settings.json`.
 
+**Sound:** generated live from the simulation, not from recordings: the main rotor's thump at the blade-passage
+frequency (sharper "slap" when heavily loaded or in vortex ring state), blade swish, the tail rotor's buzz, the
+motor's whine (its pitch follows motor RPM, so you hear the RPM sag on a punch; silent in throttle hold, where
+the one-way bearing lets the motor stop), gear mesh, and wind at the pilot. It is heard from the camera: louder
+up close, duller far away, panned left/right, with Doppler on fast passes. *Sim → Sound* has on/off (`M`) and
+volume; it's silent while paused. The audio thread only reads the simulation, so it never affects
+determinism. `FlightSoundTest` writes a scripted flight (spool-up, lift-off, punch, throttle hold) to
+`app/build/sound/flight.wav`.
+
 **Performance:** *View → Performance* (`F6`) shows where each frame's time goes: input, physics, UI build,
 3D scene and UI draw on the CPU, plus GPU time from OpenGL timer queries where the driver has them. *Headroom*
 is the share of the frame interval left after the busier of CPU and GPU, i.e. how much more work fits before the
@@ -139,7 +148,7 @@ real time the simulation could run. A chart plots the last 10 s.
 
 The window has a menu bar (Dear ImGui via [imgui-java](https://github.com/SpaiR/imgui-java)) above the 3D view:
 
-- **Sim**: pause/resume, reset, quit
+- **Sim**: pause/resume, reset, environment, sound, throttle hold, flight mode, quit
 - **Aircraft**: model selection (toy heli for now)
 - **Input**: *Controls...* and device selection
 - **View**: HUD, *Telemetry* (live ImPlot charts), *Performance*, camera, binoculars, screenshot
@@ -173,6 +182,7 @@ Window layout persists in `~/.config/ktheli/imgui.ini`; bindings and calibration
 | `F1` / `F2` / `F3` / `F4` | Controls dialog / telemetry / HUD / environment |
 | `V` / `F5` / `Z` / `B` | Camera view (cycle) / camera settings / auto-zoom / binoculars |
 | `F6` | Performance window |
+| `M` | Sound on / off |
 | `F12` | Save a screenshot to the working directory |
 | `Tab` | Next joystick |
 | `Ctrl+Q` | Quit |
@@ -235,4 +245,5 @@ CPU rasterizer of the UI alone.
 4. ✅ FBL controller, swashplate mixing, TX curves/expo, flight modes, throttle hold (done with Phase 2);
    still open: dual rates, per-mode tuning UI
 5. ✅ Wind (shear, Dryden turbulence, gusts), air density, vortex ring state
-6. Sound, replays, telemetry plots, crash physics, multiple airframes
+6. ✅ Sound, telemetry plots, performance monitor; models and flying fields are selectable
+7. Replays, crash physics, more airframes, dual rates and per-mode tuning UI
