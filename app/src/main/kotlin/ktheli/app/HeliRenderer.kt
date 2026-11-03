@@ -109,14 +109,22 @@ class ObjHeliRenderer(private val visual: HelicopterVisual.Obj) : HeliRenderer {
                 set(DepthTestAttribute(GL20.GL_LEQUAL, false))
                 set(IntAttribute.createCullFace(GL20.GL_NONE))
             }
-            // The blades get their own copy of the body material so they can fade without fading the airframe.
-            getMaterial(visual.bodyMaterial)?.copy()?.apply {
-                id = visual.bodyMaterial + "_blades"
-                set(BlendingAttribute(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA, 1f))
-            }?.let { blades ->
-                materials.add(blades)
-                for (id in listOf(n.mainBlades, n.tailBlades)) getNode(id)?.parts?.forEach { it.material = blades }
+            // Each rotor part gets its own material copy: blades fade without fading the airframe, and the main
+            // and tail rotors (which turn at very different speeds) fade independently even though the asset
+            // gives both discs one blur material.
+            val body = getMaterial(visual.bodyMaterial)
+            val blur = getMaterial(visual.blurMaterial)
+            fun own(nodeId: String, base: Material?, blended: Boolean) {
+                val copy = base?.copy() ?: return
+                copy.id = "${base.id}_$nodeId"
+                if (blended) copy.set(BlendingAttribute(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA, 1f))
+                materials.add(copy)
+                getNode(nodeId)?.parts?.forEach { it.material = copy }
             }
+            own(n.mainBlades, body, blended = true)
+            own(n.tailBlades, body, blended = true)
+            own(n.mainDisc, blur, blended = false)
+            own(n.tailDisc, blur, blended = false)
         }
     }
 
@@ -158,6 +166,10 @@ class ObjHeliRenderer(private val visual: HelicopterVisual.Obj) : HeliRenderer {
         instance.getNode(n.tailDisc)?.rotation?.set(Vector3.Y, (tailAzimuthDeg * b.discSpinFactor).toFloat())
         instance.calculateTransforms()
     }
+
+    /** Current opacity of a node's material, for tests. */
+    internal fun opacity(nodeId: String): Float? =
+        (instance.getNode(nodeId)?.parts?.firstOrNull()?.material?.get(BlendingAttribute.Type) as? BlendingAttribute)?.opacity
 
     private fun setOpacity(nodeId: String, opacity: Double) {
         instance.getNode(nodeId)?.parts?.forEach { part ->
