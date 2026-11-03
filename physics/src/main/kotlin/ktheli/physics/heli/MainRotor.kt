@@ -60,6 +60,9 @@ interface MainRotor {
     /** Mean induced velocity through the disc, m/s. */
     val inflow: Double
 
+    /** Azimuth of blade 0 (rad, from the tail in the direction of rotation) if the model tracks blades. */
+    val bladeAzimuth: Double? get() = null
+
     fun hashInto(hash: StateHash)
 }
 

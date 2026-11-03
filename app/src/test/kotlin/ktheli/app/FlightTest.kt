@@ -55,11 +55,11 @@ class FlightTest {
 
     @Test
     fun `aircraft can be switched from the menu`() = uiTest { ui ->
-        ui.menu("Aircraft", SimRunner.AircraftType.TOY.label)
+        ui.menu("Aircraft", HelicopterModels.TOY.name)
         assertIs<ToyHeli>(ui.core.runner.sim.aircraft)
-        ui.menu("Aircraft", SimRunner.AircraftType.HELI_450_DISC.label)
+        ui.menu("Aircraft", HelicopterModels.TREX_450_DISC.name)
         assertIs<FlappingDiscRotor>(assertIs<Helicopter>(ui.core.runner.sim.aircraft).mainRotor)
-        ui.menu("Aircraft", SimRunner.AircraftType.HELI_450.label)
+        ui.menu("Aircraft", HelicopterModels.TREX_450.name)
         assertIs<BladeElementRotor>(assertIs<Helicopter>(ui.core.runner.sim.aircraft).mainRotor)
         assertTrue(ui.core.input.throttleHold, "switching aircraft re-arms throttle hold")
     }

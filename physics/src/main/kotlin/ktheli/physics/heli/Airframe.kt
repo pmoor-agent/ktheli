@@ -142,6 +142,14 @@ data class Airframe(
 )
 
 object Airframes {
+    /** Align T-Rex 450 class: [class450] with the tail rotor on the right of the boom, where the real one sits. */
+    val trex450: Airframe by lazy {
+        class450.copy(
+            name = "Align T-Rex 450",
+            tailRotor = class450.tailRotor.copy(position = Vec3(-0.47, 0.028, -0.03)),
+        )
+    }
+
     /** A generic 450-size 3D helicopter on 3S, numbers in the range of a T-Rex 450 class machine. */
     val class450: Airframe = run {
         val mass = 0.82

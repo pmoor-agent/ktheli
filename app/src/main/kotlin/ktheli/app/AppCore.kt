@@ -19,7 +19,7 @@ class AppCore(
     private val settingsStore: SettingsStore = SettingsStore(),
 ) {
     private var settings = settingsStore.load()
-    val runner = SimRunner(settings.aircraftType, settings.environment.toSettings())
+    val runner = SimRunner(settings.model, settings.environment.toSettings())
     val input = InputController(store, joysticks, keyboard)
     val telemetry = Telemetry()
     val view = ViewSettings()
@@ -33,9 +33,9 @@ class AppCore(
         save(settings.copy(environment = EnvironmentDto.of(environment)))
     }
 
-    fun selectAircraft(type: SimRunner.AircraftType) {
-        runner.select(type)
-        save(settings.copy(aircraft = type.name))
+    fun selectAircraft(model: HelicopterModel) {
+        runner.select(model)
+        save(settings.copy(aircraft = model.id))
     }
 
     private fun save(newSettings: AppSettings) {

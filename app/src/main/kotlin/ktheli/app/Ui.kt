@@ -23,7 +23,7 @@ class UiContext(
     val controls: () -> Controls,
     val host: AppHost,
     val changeEnvironment: (EnvironmentSettings) -> Unit,
-    val selectAircraft: (SimRunner.AircraftType) -> Unit,
+    val selectAircraft: (HelicopterModel) -> Unit,
 )
 
 /** Immediate-mode UI: call [draw] once per frame between ImGui newFrame/render. */
@@ -111,11 +111,12 @@ class Ui(private val ctx: UiContext) {
             Gui.endMenu()
         }
         if (Gui.beginMenu("Aircraft")) {
-            SimRunner.AircraftType.entries.forEach { type ->
-                if (Gui.menuItem(type.label, "", type == ctx.runner.aircraftType)) {
-                    ctx.selectAircraft(type)
+            HelicopterModels.ALL.forEach { model ->
+                if (Gui.menuItem(model.name, "", model == ctx.runner.model)) {
+                    ctx.selectAircraft(model)
                     reset()
                 }
+                if (ImGui.isItemHovered()) ImGui.setTooltip(model.description)
             }
             Gui.endMenu()
         }

@@ -36,6 +36,8 @@ class Helicopter(
     seed: Long = 1,
     private val tickRateHz: Int = 2000,
     controllerRateHz: Int = 1000,
+    /** Full-stick yaw rate of the tail gyro, for the "commanded" telemetry gauge. */
+    private val maxYawRate: Double = TailGyroSettings().maxYawRate,
 ) : AircraftModel {
     override var body: RigidBodyState = initial
         private set
@@ -189,6 +191,7 @@ class Helicopter(
     // --- Read-outs ---------------------------------------------------------------------------------
 
     val rotorRpm: Double get() = rotorSpeed * 60.0 / DMath.TWO_PI
+    val tailRotorRpm: Double get() = rotorRpm * airframe.tailRotor.gearRatio
     val governorTargetRpm: Double get() = drivetrain.governorTarget * 60.0 / DMath.TWO_PI
     val bladePitches: BladePitches get() = pitches
     val mainThrust: Double get() = last.main.thrust
@@ -208,7 +211,7 @@ class Helicopter(
         Gauge("Pitch", "cyclic longitudinal", "deg") { DMath.toDegrees(pitches.longitudinal) },
         Gauge("Pitch", "tail", "deg") { DMath.toDegrees(pitches.tail) },
         Gauge("Yaw", "yaw rate", "deg/s") { DMath.toDegrees(body.angularVelocity.z) },
-        Gauge("Yaw", "commanded", "deg/s") { DMath.toDegrees(receiver.yaw * TailGyroSettings().maxYawRate) },
+        Gauge("Yaw", "commanded", "deg/s") { DMath.toDegrees(receiver.yaw * maxYawRate) },
         Gauge("Thrust", "main", "N") { last.main.thrust },
         Gauge("Thrust", "tail", "N") { last.tail.thrust },
         Gauge("Thrust", "weight", "N") { mp.mass * 9.80665 },
@@ -230,20 +233,13 @@ class Helicopter(
     }
 
     companion object {
-        /** The 450 with the Phase 2 rotor: uniform-inflow disc with first-order flapping. */
-        fun disc450(initial: RigidBodyState = parkedAt(Vec3.ZERO), seed: Long = 1) = Helicopter(
-            initial = initial,
-            seed = seed,
-            mainRotor = FlappingDiscRotor(Airframes.class450.mainRotor),
-        )
+        /** The generic 450 with the Phase 2 disc rotor; see [HelicopterSpec.GENERIC_450_DISC]. */
+        fun disc450(initial: RigidBodyState = parkedAt(Vec3.ZERO), seed: Long = 1) =
+            HelicopterSpec.GENERIC_450_DISC.build(initial, seed)
 
-        /** The 450 with the blade element rotor; its FBL unit is set up with cyclic phase compensation. */
-        fun bladeElement450(initial: RigidBodyState = parkedAt(Vec3.ZERO), seed: Long = 1) = Helicopter(
-            initial = initial,
-            seed = seed,
-            mainRotor = BladeElementRotor(Airframes.class450.mainRotor, seed),
-            controller = FlybarlessController(FlybarlessSettings(cyclicPhaseDeg = BLADE_ELEMENT_PHASE)),
-        )
+        /** The generic 450 with the blade element rotor; see [HelicopterSpec.GENERIC_450]. */
+        fun bladeElement450(initial: RigidBodyState = parkedAt(Vec3.ZERO), seed: Long = 1) =
+            HelicopterSpec.GENERIC_450.build(initial, seed)
 
         const val BLADE_ELEMENT_PHASE = 18.0 // minimizes roll-pitch cross-coupling (measured in flight)
 
