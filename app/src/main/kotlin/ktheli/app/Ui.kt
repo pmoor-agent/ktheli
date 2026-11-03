@@ -26,6 +26,7 @@ class UiContext(
     val changeEnvironment: (EnvironmentSettings) -> Unit,
     val selectAircraft: (HelicopterModel) -> Unit,
     val changeCamera: (CameraSettings) -> Unit,
+    val selectField: (FlyingField) -> Unit,
 )
 
 /** Immediate-mode UI: call [draw] once per frame between ImGui newFrame/render. */
@@ -129,6 +130,16 @@ class Ui(private val ctx: UiContext) {
                     reset()
                 }
                 if (ImGui.isItemHovered()) ImGui.setTooltip(model.description)
+            }
+            Gui.endMenu()
+        }
+        if (Gui.beginMenu("Field")) {
+            FlyingFields.ALL.forEach { field ->
+                if (Gui.menuItem(field.name, "", field == ctx.runner.field)) {
+                    ctx.selectField(field)
+                    reset()
+                }
+                if (ImGui.isItemHovered()) ImGui.setTooltip(field.description)
             }
             Gui.endMenu()
         }

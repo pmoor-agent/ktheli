@@ -17,8 +17,11 @@ data class AppSettings(
     val aircraft: String = HelicopterModels.DEFAULT.id,
     val environment: EnvironmentDto = EnvironmentDto(),
     val camera: CameraSettings = CameraSettings(),
+    /** [FlyingField.id] of the selected field. */
+    val field: String = FlyingFields.DEFAULT.id,
 ) {
     val model: HelicopterModel get() = HelicopterModels.byId(aircraft) ?: HelicopterModels.DEFAULT
+    val flyingField: FlyingField get() = FlyingFields.byId(this.field) ?: FlyingFields.DEFAULT
 }
 
 /** Serializable mirror of [EnvironmentSettings] (the physics module stays free of serialization). */

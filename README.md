@@ -32,6 +32,17 @@ Adding a model: put the asset under `app/src/main/resources/models/<id>/`, defin
 a `copy` of an existing one with a different airframe or setup), and add a `HelicopterModel` to
 `HelicopterModels.ALL`. It then appears in the *Aircraft* menu and persists by id.
 
+## Flying fields
+
+Where you fly is a `FlyingField` in the `FlyingFields` registry (*Field* menu, persisted like the model):
+where the pilot stands, where models park on reset, the windsock, the ground (procedural grass texture with
+mowing stripes, or plain grass with a grid), landing pads, and an optional tree line placed from a seed. The
+default *Home field* has a 2 m asphalt helipad with an "H" at the origin, where models start, the pilot 6 m
+south of it, and about 290 trees, 10-20 m tall, some 200 m out. Fields are visual: the physics ground is the flat
+plane z = 0 and trees are not obstacles. Textures are generated in code (`FieldTextures`), so no image assets.
+
+Adding a field: define a `FlyingField` and add it to `FlyingFields.ALL`.
+
 ## Helicopter model (`physics/.../heli`)
 
 ```
