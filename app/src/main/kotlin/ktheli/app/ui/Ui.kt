@@ -46,7 +46,8 @@ class Ui(
 
     fun draw() {
         drawMenuBar()
-        if (showHud.get()) drawHud()
+        val statusOpacity = session.status.opacity.toFloat()
+        if (showHud.get() || statusOpacity > 0f) drawHud(full = showHud.get(), statusOpacity)
         session.runner.crash?.let(::drawCrash)
         if (session.camera.binoculars.enabled) drawBinocularFrame()
         controlsWindow.draw(menuBarHeight)
@@ -174,38 +175,44 @@ class Ui(
         ImGui.endMainMenuBar()
     }
 
-    private fun drawHud() {
+    /** The HUD: flight data when [full] (the HUD is switched on), then the latest status message while it fades. */
+    private fun drawHud(full: Boolean, statusOpacity: Float) {
         val flags = ImGuiWindowFlags.NoDecoration or ImGuiWindowFlags.AlwaysAutoResize or
             ImGuiWindowFlags.NoSavedSettings or ImGuiWindowFlags.NoFocusOnAppearing or
             ImGuiWindowFlags.NoNav or ImGuiWindowFlags.NoMove or ImGuiWindowFlags.NoMouseInputs
         ImGui.setNextWindowPos(10f, menuBarHeight + 10f)
-        ImGui.setNextWindowBgAlpha(0.35f)
+        ImGui.setNextWindowBgAlpha(if (full) 0.35f else 0.35f * statusOpacity)
         if (Gui.begin("##hud", flags = flags)) {
-            val sim = session.runner.sim
-            val body = sim.aircraft.body
-            Gui.text("t %.2f s   tick %d   %d fps".format(sim.time, sim.tick, host.fps))
-            Gui.text("alt %.2f m   speed %.1f m/s".format(-body.position.z, body.velocity.length()))
-            Gui.text(session.input.active?.let { "Input: ${it.name}" } ?: "Input: keyboard")
-            val aircraft = session.aircraft
-            aircraft.headspeed?.let { headspeed ->
-                val mode = aircraft.flightModes.getOrNull(session.input.flightMode)?.let { "$it   " }.orEmpty()
-                val delta = if (headspeed.targetRpm > 0.0) "  (%+.0f)".format(headspeed.rpm - headspeed.targetRpm) else ""
-                Gui.text("%sheadspeed %.0f rpm%s".format(mode, headspeed.rpm, delta))
-                if (session.input.throttleHold) {
-                    val key = session.input.keyLabel(Action.THROTTLE_HOLD)?.let { " - $it to release" }.orEmpty()
-                    Gui.textColored(1f, 0.5f, 0.2f, 1f, "THROTTLE HOLD$key")
-                }
-            }
-            val wind = session.runner.environment.wind
-            if (wind.speed > 0.0) {
-                val here = sim.environment.windAt(body.position).length()
-                Gui.text("Wind %.1f m/s from %s (%03.0f)   at heli %.1f m/s".format(
-                    wind.speed, EnvironmentWindow.compass(wind.fromDegrees), wind.fromDegrees, here))
-            }
-            if (session.runner.paused) Gui.textColored(1f, 0.8f, 0.2f, 1f, "PAUSED")
-            modePrompt()?.let { Gui.textColored(1f, 0.8f, 0.2f, 1f, it) }
+            if (full) drawFlightData()
+            if (statusOpacity > 0f) Gui.textColored(0.85f, 0.95f, 1f, statusOpacity, session.status.message)
         }
         Gui.end()
+    }
+
+    private fun drawFlightData() {
+        val sim = session.runner.sim
+        val body = sim.aircraft.body
+        Gui.text("t %.2f s   tick %d   %d fps".format(sim.time, sim.tick, host.fps))
+        Gui.text("alt %.2f m   speed %.1f m/s".format(-body.position.z, body.velocity.length()))
+        Gui.text(session.input.active?.let { "Input: ${it.name}" } ?: "Input: keyboard")
+        val aircraft = session.aircraft
+        aircraft.headspeed?.let { headspeed ->
+            val mode = aircraft.flightModes.getOrNull(session.input.flightMode)?.let { "$it   " }.orEmpty()
+            val delta = if (headspeed.targetRpm > 0.0) "  (%+.0f)".format(headspeed.rpm - headspeed.targetRpm) else ""
+            Gui.text("%sheadspeed %.0f rpm%s".format(mode, headspeed.rpm, delta))
+            if (session.input.throttleHold) {
+                val key = session.input.keyLabel(Action.THROTTLE_HOLD)?.let { " - $it to release" }.orEmpty()
+                Gui.textColored(1f, 0.5f, 0.2f, 1f, "THROTTLE HOLD$key")
+            }
+        }
+        val wind = session.runner.environment.wind
+        if (wind.speed > 0.0) {
+            val here = sim.environment.windAt(body.position).length()
+            Gui.text("Wind %.1f m/s from %s (%03.0f)   at heli %.1f m/s".format(
+                wind.speed, EnvironmentWindow.compass(wind.fromDegrees), wind.fromDegrees, here))
+        }
+        if (session.runner.paused) Gui.textColored(1f, 0.8f, 0.2f, 1f, "PAUSED")
+        modePrompt()?.let { Gui.textColored(1f, 0.8f, 0.2f, 1f, it) }
     }
 
     /** A banner in the middle of the view: what happened, and how to go again. */

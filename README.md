@@ -178,6 +178,9 @@ The window has a menu bar (Dear ImGui via [imgui-java](https://github.com/SpaiR/
 - **View**: HUD, *Telemetry* (live ImPlot charts), *Performance*, camera, binoculars, screenshot
 - **Help**: controls, ImGui demo window, about
 
+Messages (a binding made, a screenshot saved, an error) appear at the bottom of the HUD for a few seconds and
+then fade; with the HUD off they show on their own. The Controls dialog keeps the latest one.
+
 Menu shortcuts always show the current key bindings.
 
 ### Controls dialog

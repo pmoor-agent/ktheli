@@ -15,14 +15,31 @@ import ktheli.physics.math.Vec3
 import ktheli.physics.sim.Controls
 import ktheli.physics.sim.Crash
 
-/** The latest feedback for the pilot (a binding made, a file saved, an error); empty when there's nothing to say. */
-class StatusLine {
+/**
+ * The latest feedback for the pilot (a binding made, a file saved, an error); empty when there's nothing to say.
+ * The HUD shows each message for a few seconds ([opacity]); the Controls dialog keeps showing the latest one.
+ */
+class StatusLine(private val holdSeconds: Double = 3.0, private val fadeSeconds: Double = 1.0) {
     var message: String = ""
+        private set
+
+    /** Wall-clock seconds since [message] was shown. */
+    var age: Double = 0.0
         private set
 
     fun show(message: String) {
         this.message = message
+        age = 0.0
     }
+
+    /** Advances the clock by one frame. */
+    fun tick(frameSeconds: Double) {
+        age += frameSeconds
+    }
+
+    /** For a fading display: 1 while fresh, then down to 0 over [fadeSeconds]; 0 when there's no message. */
+    val opacity: Double
+        get() = if (message.isEmpty()) 0.0 else ((holdSeconds + fadeSeconds - age) / fadeSeconds).coerceIn(0.0, 1.0)
 }
 
 /**
@@ -82,6 +99,7 @@ class AppSession(
 
     /** Reads keyboard and joysticks; returns the press-actions their buttons triggered, for the caller to route. */
     fun pollInput(frameSeconds: Double, keyboardEnabled: Boolean): List<Action> {
+        status.tick(frameSeconds)
         val frame = input.update(frameSeconds, keyboardEnabled)
         controls = frame.controls
         return frame.actions
