@@ -1,5 +1,9 @@
 package ktheli.app
 
+import ktheli.app.session.AppHost
+import ktheli.app.session.AppSession
+import ktheli.app.session.HelicopterModels
+import ktheli.app.session.SettingsStore
 import ktheli.input.Action
 import ktheli.input.ProfileStore
 import ktheli.physics.heli.Helicopter

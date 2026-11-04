@@ -1,8 +1,12 @@
-package ktheli.app
+package ktheli.app.ui
 
 import imgui.ImGui
 import imgui.flag.ImGuiCond
 import imgui.type.ImBoolean
+import ktheli.app.session.BinocularSettings
+import ktheli.app.session.CameraMode
+import ktheli.app.session.CameraSettings
+import ktheli.app.session.Corner
 
 /** The "Camera" dialog: view mode and its options. */
 class CameraWindow(private val current: () -> CameraSettings, private val change: (CameraSettings) -> Unit) {

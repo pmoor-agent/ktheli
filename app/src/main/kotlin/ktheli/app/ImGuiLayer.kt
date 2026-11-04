@@ -7,6 +7,7 @@ import imgui.ImGui
 import imgui.extension.implot.ImPlot
 import imgui.gl3.ImGuiImplGl3
 import imgui.glfw.ImGuiImplGlfw
+import ktheli.app.ui.applyKtheliStyle
 import java.nio.file.Path
 
 /**
@@ -46,14 +47,5 @@ class ImGuiLayer(iniFile: Path) : Disposable {
         glfw.shutdown()
         ImPlot.destroyContext()
         ImGui.destroyContext()
-    }
-}
-
-/** The app's look; shared with the headless test driver so UI snapshots match. */
-fun applyKtheliStyle() {
-    ImGui.styleColorsClassic()
-    ImGui.getStyle().apply {
-        windowRounding = 0f
-        frameRounding = 0f // the built-in pixel font stays crisp only at its native size
     }
 }

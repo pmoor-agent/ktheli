@@ -1,4 +1,4 @@
-package ktheli.app
+package ktheli.app.session
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json

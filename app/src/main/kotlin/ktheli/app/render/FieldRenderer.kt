@@ -1,4 +1,4 @@
-package ktheli.app
+package ktheli.app.render
 
 import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.GL20
@@ -23,6 +23,9 @@ import com.badlogic.gdx.math.Matrix4
 import com.badlogic.gdx.math.Quaternion
 import com.badlogic.gdx.math.Vector3
 import com.badlogic.gdx.utils.Disposable
+import ktheli.app.session.FlyingField
+import ktheli.app.session.Pad
+import ktheli.app.session.TreeLine
 import ktheli.physics.math.Vec3
 import kotlin.math.cos
 import kotlin.math.sin

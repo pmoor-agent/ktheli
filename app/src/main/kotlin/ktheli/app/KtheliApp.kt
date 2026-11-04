@@ -7,8 +7,14 @@ import com.badlogic.gdx.graphics.GL20
 import com.badlogic.gdx.graphics.Pixmap
 import com.badlogic.gdx.graphics.PixmapIO
 import com.badlogic.gdx.utils.ScreenUtils
-import ktheli.app.sound.AudioOutput
+import ktheli.app.render.GpuTimer
+import ktheli.app.render.Scene
+import ktheli.app.render.WorldView
+import ktheli.app.session.AppHost
+import ktheli.app.session.ConfigPaths
+import ktheli.app.session.FrameProfiler
 import ktheli.app.sound.SoundParams
+import ktheli.app.ui.ControlsWindow
 import java.nio.file.Files
 
 /** The windowed application: [AppCore] plus the GL scene and the ImGui renderer. */

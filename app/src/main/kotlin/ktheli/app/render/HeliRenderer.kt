@@ -1,4 +1,4 @@
-package ktheli.app
+package ktheli.app.render
 
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.graphics.Color
@@ -25,6 +25,7 @@ import com.badlogic.gdx.math.Matrix4
 import com.badlogic.gdx.math.Quaternion
 import com.badlogic.gdx.math.Vector3
 import com.badlogic.gdx.utils.Disposable
+import ktheli.app.session.HelicopterVisual
 import ktheli.physics.body.RigidBodyState
 import ktheli.physics.math.Vec3
 

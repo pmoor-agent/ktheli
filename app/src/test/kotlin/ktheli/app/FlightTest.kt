@@ -2,6 +2,7 @@ package ktheli.app
 
 import com.badlogic.gdx.Input.Keys
 import ktheli.app.harness.uiTest
+import ktheli.app.session.HelicopterModels
 import ktheli.physics.heli.BladeElementRotor
 import ktheli.physics.heli.FlappingDiscRotor
 import ktheli.physics.heli.Helicopter

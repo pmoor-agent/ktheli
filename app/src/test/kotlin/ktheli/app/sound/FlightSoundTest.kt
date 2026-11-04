@@ -1,7 +1,7 @@
 package ktheli.app.sound
 
-import ktheli.app.HelicopterModels
-import ktheli.app.SimRunner
+import ktheli.app.session.HelicopterModels
+import ktheli.app.session.SimRunner
 import ktheli.physics.heli.Helicopter
 import ktheli.physics.math.Vec3
 import ktheli.physics.sim.Controls

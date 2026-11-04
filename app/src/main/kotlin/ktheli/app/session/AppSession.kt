@@ -1,4 +1,4 @@
-package ktheli.app
+package ktheli.app.session
 
 import ktheli.app.sound.HeliAcoustics
 import ktheli.app.sound.Listener
@@ -28,7 +28,7 @@ class StatusLine {
 
 /**
  * The simulator without a GUI or a rendering toolkit: simulation, input, telemetry, persisted settings, and
- * every [Action] that isn't about which windows are open. The ImGui [Ui] shows it and issues commands to it;
+ * every [Action] that isn't about which windows are open. The ImGui UI shows it and issues commands to it;
  * the renderer and the sound read it. It never calls back into either.
  *
  * Per frame: [pollInput], perform the returned actions, then [advance].

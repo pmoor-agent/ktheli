@@ -2,6 +2,8 @@ package ktheli.app
 
 import ktheli.app.harness.UiDriver
 import ktheli.app.harness.uiTest
+import ktheli.app.session.FlyingFields
+import ktheli.app.session.TreeLine
 import ktheli.physics.math.Vec3
 import ktheli.physics.sim.StateHash
 import java.nio.file.Files

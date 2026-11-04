@@ -1,6 +1,10 @@
 package ktheli.app
 
 import ktheli.app.harness.UiDriver
+import ktheli.app.session.AppSettings
+import ktheli.app.session.HelicopterModels
+import ktheli.app.session.HelicopterVisual
+import ktheli.app.session.RotorBlur
 import ktheli.physics.heli.Helicopter
 import ktheli.physics.math.Vec3
 import java.nio.file.Files

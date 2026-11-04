@@ -3,6 +3,9 @@ package ktheli.app
 import com.badlogic.gdx.Input.Keys
 import ktheli.app.harness.UiDriver
 import ktheli.app.harness.uiTest
+import ktheli.app.session.BinocularSettings
+import ktheli.app.session.Binoculars
+import ktheli.app.session.Corner
 import java.nio.file.Files
 import java.nio.file.Paths
 import kotlin.math.atan

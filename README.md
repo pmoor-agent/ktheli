@@ -12,8 +12,18 @@ An RC helicopter simulator in Kotlin, focused on realistic rotor physics rather 
 | Module    | Contents | Depends on |
 |-----------|----------|------------|
 | `physics` | Math, rigid body, aircraft models, fixed-step simulation. Pure Kotlin, no I/O. | stdlib only |
-| `input`   | Axis calibration, channel mapping, device profiles (JSON). No device access. | `physics` |
-| `app`     | libGDX rendering, GLFW joystick polling, HUD, wall-clock → tick bridge. | both |
+| `input`   | Axis calibration, channel mapping, device profiles (JSON), the binding/calibration workflows (`InputController`). No device access, no toolkit: key codes come in through a `KeyLayout`. | `physics` |
+| `app`     | Everything else, in layers (below). | both |
+
+Inside `app`, each package only uses the ones below it; `./gradlew :app:checkLayers` (part of `check`) enforces it:
+
+| Package                | Contents | May use |
+|------------------------|----------|---------|
+| `ktheli.app` (shell)   | Window, main loop, `AppCore` (routes actions), GLFW joysticks, libGDX keys, audio device, ImGui backend. | everything |
+| `ktheli.app.ui`        | ImGui menus, HUD and dialogs. | `session`, `input`, `sound`, ImGui |
+| `ktheli.app.render`    | The libGDX 3D scene: field, models, shadow, binocular inset. | `session`, libGDX |
+| `ktheli.app.session`   | `AppSession`: simulation runner, input, settings, telemetry, camera, models and fields. No toolkit. | `input`, `sound` |
+| `ktheli.app.sound`     | Acoustics and the synthesizer. | `physics` only |
 
 ## Models
 

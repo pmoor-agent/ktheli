@@ -1,5 +1,7 @@
-package ktheli.app
+package ktheli.app.render
 
+import ktheli.app.session.AppSession
+import ktheli.app.session.Binoculars
 import ktheli.physics.heli.Helicopter
 
 /**

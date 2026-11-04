@@ -1,4 +1,4 @@
-package ktheli.app
+package ktheli.app.session
 
 import ktheli.physics.heli.HelicopterSpec
 import ktheli.physics.math.Vec3

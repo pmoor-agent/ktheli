@@ -1,4 +1,4 @@
-package ktheli.app
+package ktheli.app.session
 
 import ktheli.physics.env.Obstacle
 import ktheli.physics.env.Obstacles
@@ -33,7 +33,7 @@ class FlyingField(
     /** Top of the windsock pole, where the sock shows the wind. */
     val windsockTop: Vec3 get() = Vec3(windsock.x, windsock.y, -windsockHeight)
 
-    /** Rough crash shapes matching what [FieldRenderer] draws: a trunk and a crown per tree, the windsock pole. */
+    /** Rough crash shapes matching what the field renderer draws: a trunk and a crown per tree, the windsock pole. */
     val obstacles: Obstacles by lazy {
         val list = ArrayList<Obstacle>()
         list += Obstacle("the windsock", windsock.x, windsock.y, 0.04, 0.0, windsockHeight)

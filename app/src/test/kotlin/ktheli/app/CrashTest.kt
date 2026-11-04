@@ -4,6 +4,8 @@ import com.badlogic.gdx.Input.Keys
 import ktheli.app.harness.UiDriver
 import ktheli.app.harness.glTest
 import ktheli.app.harness.uiTest
+import ktheli.app.session.FlyingFields
+import ktheli.app.session.SettingsStore
 import ktheli.physics.math.Vec3
 import java.nio.file.Paths
 import kotlin.test.Test

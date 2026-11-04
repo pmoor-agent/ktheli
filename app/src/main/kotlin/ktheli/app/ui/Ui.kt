@@ -1,4 +1,4 @@
-package ktheli.app
+package ktheli.app.ui
 
 import imgui.ImColor
 import imgui.ImGui
@@ -9,6 +9,13 @@ import imgui.extension.implot.flag.ImPlotCond
 import imgui.flag.ImGuiCond
 import imgui.flag.ImGuiWindowFlags
 import imgui.type.ImBoolean
+import ktheli.app.session.AppHost
+import ktheli.app.session.AppSession
+import ktheli.app.session.Binoculars
+import ktheli.app.session.CameraMode
+import ktheli.app.session.FlyingFields
+import ktheli.app.session.FrameProfiler
+import ktheli.app.session.HelicopterModels
 import ktheli.input.Action
 import ktheli.input.CalibrationSession
 import ktheli.input.InputController

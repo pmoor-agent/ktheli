@@ -1,4 +1,4 @@
-package ktheli.app
+package ktheli.app.session
 
 import ktheli.physics.body.RigidBodyState
 import ktheli.physics.env.Environment

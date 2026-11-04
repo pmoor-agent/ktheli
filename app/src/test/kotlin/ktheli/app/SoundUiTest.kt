@@ -2,6 +2,7 @@ package ktheli.app
 
 import com.badlogic.gdx.Input.Keys
 import ktheli.app.harness.uiTest
+import ktheli.app.session.SettingsStore
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse

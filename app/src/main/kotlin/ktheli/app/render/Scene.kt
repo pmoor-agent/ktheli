@@ -1,4 +1,4 @@
-package ktheli.app
+package ktheli.app.render
 
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.graphics.Color
@@ -18,6 +18,11 @@ import com.badlogic.gdx.graphics.g3d.environment.DirectionalLight
 import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder
 import com.badlogic.gdx.math.Vector3
 import com.badlogic.gdx.utils.Disposable
+import ktheli.app.session.BinocularSettings
+import ktheli.app.session.Binoculars
+import ktheli.app.session.CameraPose
+import ktheli.app.session.FlyingField
+import ktheli.app.session.HelicopterModel
 import ktheli.physics.body.RigidBodyState
 import ktheli.physics.math.Vec3
 import kotlin.math.max

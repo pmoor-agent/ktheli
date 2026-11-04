@@ -1,4 +1,4 @@
-package ktheli.app
+package ktheli.app.render
 
 import com.badlogic.gdx.graphics.Pixmap
 import com.badlogic.gdx.graphics.Texture

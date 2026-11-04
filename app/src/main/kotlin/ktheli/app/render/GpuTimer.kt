@@ -1,4 +1,4 @@
-package ktheli.app
+package ktheli.app.render
 
 import org.lwjgl.opengl.GL
 import org.lwjgl.opengl.GL15
