@@ -22,6 +22,7 @@ import ktheli.app.session.BinocularSettings
 import ktheli.app.session.Binoculars
 import ktheli.app.session.CameraPose
 import ktheli.app.session.FlyingField
+import ktheli.app.session.RotorPose
 import ktheli.app.session.HelicopterModel
 import ktheli.physics.body.RigidBodyState
 import ktheli.physics.math.Vec3

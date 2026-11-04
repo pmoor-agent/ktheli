@@ -26,22 +26,9 @@ import com.badlogic.gdx.math.Quaternion
 import com.badlogic.gdx.math.Vector3
 import com.badlogic.gdx.utils.Disposable
 import ktheli.app.session.HelicopterVisual
+import ktheli.app.session.RotorPose
 import ktheli.physics.body.RigidBodyState
 import ktheli.physics.math.Vec3
-
-/**
- * Rotor state for drawing, from the simulation.
- *
- * @property bladeAzimuth main rotor blade 0 azimuth (rad, from the tail in the direction of rotation) when the
- *   simulation tracks individual blades; otherwise the renderer integrates [rpm]
- */
-class RotorPose(
-    val rpm: Double,
-    val tailRpm: Double,
-    val tiltBack: Double = 0.0,
-    val tiltRight: Double = 0.0,
-    val bladeAzimuth: Double? = null,
-)
 
 /** Draws one helicopter model. Created from a [HelicopterVisual] by [create]. */
 interface HeliRenderer : Disposable {

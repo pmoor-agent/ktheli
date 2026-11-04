@@ -19,7 +19,6 @@ import ktheli.app.session.HelicopterModels
 import ktheli.input.Action
 import ktheli.input.CalibrationSession
 import ktheli.input.InputController
-import ktheli.physics.heli.Helicopter
 import ktheli.physics.sim.Crash
 
 /**
@@ -44,8 +43,6 @@ class Ui(
     /** Height of the main menu bar in logical pixels, valid after [draw]. */
     var menuBarHeight = 0f
         private set
-
-    private val helicopter: Helicopter? get() = session.runner.sim.aircraft as? Helicopter
 
     fun draw() {
         drawMenuBar()
@@ -105,10 +102,11 @@ class Ui(
             }
             ImGui.separator()
             actionItem("Throttle hold", Action.THROTTLE_HOLD, session.input.throttleHold)
-            helicopter?.let { heli ->
+            val modes = session.aircraft.flightModes
+            if (modes.isNotEmpty()) {
                 if (Gui.beginMenu("Flight mode")) {
-                    heli.transmitter.setup.modes.forEachIndexed { i, mode ->
-                        if (Gui.menuItem(mode.name, if (i == 0) shortcut(Action.FLIGHT_MODE) else "", i == session.input.flightMode)) {
+                    modes.forEachIndexed { i, mode ->
+                        if (Gui.menuItem(mode, if (i == 0) shortcut(Action.FLIGHT_MODE) else "", i == session.input.flightMode)) {
                             session.input.selectFlightMode(i)
                         }
                     }
@@ -188,11 +186,11 @@ class Ui(
             Gui.text("t %.2f s   tick %d   %d fps".format(sim.time, sim.tick, host.fps))
             Gui.text("alt %.2f m   speed %.1f m/s".format(-body.position.z, body.velocity.length()))
             Gui.text(session.input.active?.let { "Input: ${it.name}" } ?: "Input: keyboard")
-            helicopter?.let { heli ->
-                val mode = heli.transmitter.setup.modes[session.input.flightMode.coerceIn(0, heli.transmitter.setup.modes.lastIndex)]
-                val target = heli.governorTargetRpm
-                val delta = if (target > 0.0) "  (%+.0f)".format(heli.rotorRpm - target) else ""
-                Gui.text("%s   headspeed %.0f rpm%s".format(mode.name, heli.rotorRpm, delta))
+            val aircraft = session.aircraft
+            aircraft.headspeed?.let { headspeed ->
+                val mode = aircraft.flightModes.getOrNull(session.input.flightMode)?.let { "$it   " }.orEmpty()
+                val delta = if (headspeed.targetRpm > 0.0) "  (%+.0f)".format(headspeed.rpm - headspeed.targetRpm) else ""
+                Gui.text("%sheadspeed %.0f rpm%s".format(mode, headspeed.rpm, delta))
                 if (session.input.throttleHold) {
                     val key = session.input.keyLabel(Action.THROTTLE_HOLD)?.let { " - $it to release" }.orEmpty()
                     Gui.textColored(1f, 0.5f, 0.2f, 1f, "THROTTLE HOLD$key")

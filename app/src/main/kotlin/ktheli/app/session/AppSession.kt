@@ -11,7 +11,6 @@ import ktheli.input.KeyLayout
 import ktheli.input.KeyboardState
 import ktheli.input.ProfileStore
 import ktheli.physics.env.EnvironmentSettings
-import ktheli.physics.heli.Helicopter
 import ktheli.physics.math.Vec3
 import ktheli.physics.sim.Controls
 import ktheli.physics.sim.Crash
@@ -64,6 +63,9 @@ class AppSession(
     /** The main camera this frame, from [updateCamera]: what the renderer shows and where the sound is heard. */
     lateinit var cameraPose: CameraPose
         private set
+
+    /** What the displays show of the aircraft right now. */
+    val aircraft: AircraftView get() = AircraftView.of(runner.sim.aircraft, crashed = runner.crash != null)
 
     /** Where the sound is heard: at the camera, facing what it looks at. */
     var listener = Listener(runner.field.pilotEye, Vec3(0.0, 1.0, 0.0))
@@ -164,7 +166,7 @@ class AppSession(
 
     /** The flight-mode switch has as many positions as the model's radio setup has flight modes. */
     private fun syncFlightModes() {
-        input.flightModeCount = (runner.sim.aircraft as? Helicopter)?.transmitter?.setup?.modes?.size ?: 1
+        input.flightModeCount = aircraft.flightModes.size.coerceAtLeast(1)
     }
 
     fun changeCamera(camera: CameraSettings) {

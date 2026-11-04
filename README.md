@@ -25,6 +25,9 @@ Inside `app`, each package only uses the ones below it; `./gradlew :app:checkLay
 | `ktheli.app.session`   | `AppSession`: simulation runner, input, settings, telemetry, camera, models and fields. No toolkit. | `input`, `sound` |
 | `ktheli.app.sound`     | Acoustics and the synthesizer. | `physics` only |
 
+`ui` and `render` see the aircraft only through `session.AircraftView` (rotor pose, headspeed, flight modes),
+never through the concrete physics types; the sound has its own adapter, `HeliAcoustics.source`.
+
 ## Models
 
 A flyable model is a `HelicopterModel` (app) in the `HelicopterModels` registry:

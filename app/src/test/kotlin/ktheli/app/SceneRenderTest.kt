@@ -6,7 +6,6 @@ import ktheli.app.harness.Images
 import ktheli.app.harness.Offscreen
 import ktheli.app.harness.glTest
 import ktheli.app.render.ObjHeliRenderer
-import ktheli.app.render.RotorPose
 import ktheli.app.render.Scene
 import ktheli.app.render.toGdx
 import ktheli.app.session.BinocularSettings
@@ -21,6 +20,7 @@ import ktheli.app.session.HelicopterModel
 import ktheli.app.session.HelicopterModels
 import ktheli.app.session.HelicopterVisual
 import ktheli.app.session.RotorNodes
+import ktheli.app.session.RotorPose
 import ktheli.physics.body.RigidBodyState
 import ktheli.physics.math.Vec3
 import org.junit.jupiter.api.Assumptions.assumeTrue

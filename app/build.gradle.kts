@@ -77,11 +77,13 @@ val checkLayers = tasks.register("checkLayers") {
     doLast {
         val shell = """ktheli\.app\.(?!(?:session|sound|render|ui)\b)\w"""
         val gdx = """(?:com\.badlogic|org\.lwjgl)\."""
+        // Displays see the aircraft through session.AircraftView, not its concrete types.
+        val heli = """ktheli\.physics\.heli\."""
         val rules = mapOf(
             "sound" to listOf(gdx, """imgui\.""", """ktheli\.input\.""", """ktheli\.app\.(?!sound\.)"""),
             "session" to listOf(gdx, """imgui\.""", """ktheli\.app\.(?:render|ui)\.""", shell),
-            "render" to listOf("""imgui\.""", """ktheli\.input\.""", """ktheli\.app\.(?:ui|sound)\.""", shell),
-            "ui" to listOf(gdx, """ktheli\.app\.render\.""", shell),
+            "render" to listOf("""imgui\.""", """ktheli\.input\.""", """ktheli\.app\.(?:ui|sound)\.""", shell, heli),
+            "ui" to listOf(gdx, """ktheli\.app\.render\.""", shell, heli),
         ).mapValues { (_, patterns) -> patterns.map { Regex("""\b$it""") } }
         val literal = Regex(""""(?:[^"\\]|\\.)*"""")
         val violations = sources.files.flatMap { file ->
