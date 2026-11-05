@@ -1,0 +1,16 @@
+# Airbus H145 (Rega Swiss Air-Rescue) Materials
+newmtl h145_body
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.380 0.380 0.400
+Ns 64.0
+d 1.0
+map_Kd h145_atlas.png
+
+newmtl h145_blur_mat
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.150 0.150 0.150
+Ns 16.0
+d 0.85
+map_Kd h145_rotor_blur.png

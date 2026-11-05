@@ -60,12 +60,13 @@ class SceneRenderTest {
             rotors: RotorPose,
             binoculars: Scene.Viewport? = null,
             model: HelicopterModel = HelicopterModels.TREX_450,
+            frameSeconds: Float = 1f / 60f,
         ): BufferedImage {
             scene.use(model)
             scene.useField(field)
             offscreen.begin()
-            pose = rig.update(state, model.visual.rotorRadius, camera, 1.0 / 60.0, field.pilotEye)
-            scene.render(state, pose, rotors, Vec3.ZERO, Scene.Viewport(0, 0, width, height), binoculars, camera.binoculars.framing, 1f / 60f)
+            pose = rig.update(state, model.visual.rotorRadius, camera, frameSeconds.toDouble(), field.pilotEye)
+            scene.render(state, pose, rotors, Vec3.ZERO, Scene.Viewport(0, 0, width, height), binoculars, camera.binoculars.framing, frameSeconds)
             return offscreen.read()
         }
 
@@ -219,6 +220,39 @@ class SceneRenderTest {
                 assertTrue(maxOf(r, g, b) - minOf(r, g, b) < 18 && r < 90, "shadowed asphalt at ${north + dx} m north, not (%d, %d, %d)".format(r, g, b))
             }
         }
+    }
+
+    @Test
+    fun `the Rega H145 renders its red-and-white livery, 4-blade rotor and Fenestron`() = Probe(
+        CameraSettings(mode = CameraMode.FOLLOW, followDistance = 1.32, followHeight = 0.92, followFov = 44.0),
+        width = 1280,
+        height = 720,
+        field = FlyingFields.HOME,
+    ).use { p ->
+        val model = HelicopterModels.REGA_H145
+        val base = model.spec!!.parkedAt(FlyingFields.HOME.start)
+        p.render(base, RotorPose(0.0, 0.0, bladeAzimuth = 0.4), model = model) // snap camera above helipad
+        val leftProfile = base.copy(attitude = ktheli.physics.math.Quat.fromEuler(0.0, 0.0, Math.toRadians(-125.0)))
+        val rightProfile = base.copy(attitude = ktheli.physics.math.Quat.fromEuler(0.0, 0.0, Math.toRadians(125.0)))
+        val stoppedLeft = p.render(leftProfile, RotorPose(0.0, 0.0, bladeAzimuth = 0.4), model = model, frameSeconds = 0f)
+        val stoppedRight = p.render(rightProfile, RotorPose(0.0, 0.0, bladeAzimuth = 0.4), model = model, frameSeconds = 0f)
+        val spinningLeft = p.render(leftProfile, RotorPose(1500.0, 6900.0, bladeAzimuth = 0.4), model = model, frameSeconds = 0f)
+        Images.write(stoppedLeft, out.resolve("rega-h145-left.png"))
+        Images.write(stoppedRight, out.resolve("rega-h145-right.png"))
+        Images.write(spinningLeft, out.resolve("rega-h145-spinning.png"))
+
+        var redPixels = 0
+        for (y in 0 until p.height) for (x in 0 until p.width) {
+            val c = stoppedLeft.getRGB(x, y)
+            val r = c shr 16 and 255
+            val g = c shr 8 and 255
+            val b = c and 255
+            if (r > 150 && g < 60 && b < 60) redPixels++
+        }
+        val discChanged = Images.changed(stoppedLeft, spinningLeft).size
+        println("rega-h145: %d red fuselage pixels, %d rotor disc pixels changed when spinning".format(redPixels, discChanged))
+        assertTrue(redPixels > 5000, "Rega red fuselage visible: $redPixels px")
+        assertTrue(discChanged > 0.04 * p.width * p.height, "4-blade rotor disc blurs when spinning: $discChanged px")
     }
 
     @Test

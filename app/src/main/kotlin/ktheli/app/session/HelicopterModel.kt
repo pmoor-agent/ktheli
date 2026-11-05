@@ -31,6 +31,7 @@ class HelicopterModel(
 
 object HelicopterModels {
     private const val TREX_OBJ = "models/trex450/trex450.obj"
+    private const val REGA_H145_OBJ = "models/rega_h145/h145.obj"
 
     val TREX_450 = HelicopterModel.of(
         id = "trex450",
@@ -48,6 +49,14 @@ object HelicopterModels {
         visual = HelicopterVisual.Obj.forSpec(HelicopterSpec.TREX_450_DISC, TREX_OBJ, "trex450_body", "rotor_blur_mat"),
     )
 
+    val REGA_H145 = HelicopterModel.of(
+        id = "rega-h145",
+        name = "Airbus H145 Rega",
+        description = "650 class 4-blade scale rescue heli on 6S, blade element rotor",
+        spec = HelicopterSpec.REGA_H145,
+        visual = HelicopterVisual.Obj.forSpec(HelicopterSpec.REGA_H145, REGA_H145_OBJ, "h145_body", "h145_blur_mat"),
+    )
+
     val TOY = HelicopterModel(
         id = "toy",
         name = "Toy heli",
@@ -62,7 +71,7 @@ object HelicopterModels {
         spec = null,
     ) { start, _ -> ToyHeli(ToyHeli.parkedAt(start)) }
 
-    val ALL = listOf(TREX_450, TREX_450_DISC, TOY)
+    val ALL = listOf(TREX_450, TREX_450_DISC, REGA_H145, TOY)
     val DEFAULT = TREX_450
 
     /** Settings written before models existed stored aircraft type names. */

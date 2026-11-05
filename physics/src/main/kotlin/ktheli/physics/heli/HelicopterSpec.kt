@@ -64,5 +64,16 @@ data class HelicopterSpec(
         val TREX_450 = GENERIC_450.copy(airframe = Airframes.trex450)
 
         val TREX_450_DISC = GENERIC_450_DISC.copy(airframe = Airframes.trex450)
+
+        /** 650-class scale Airbus H145 in Rega colors: 4-blade main rotor, Fenestron tail, on 6S. */
+        val REGA_H145 = HelicopterSpec(
+            airframe = Airframes.regaH145,
+            flybarless = FlybarlessSettings(cyclicPhaseDeg = Helicopter.BLADE_ELEMENT_PHASE),
+        )
+
+        val REGA_H145_DISC = HelicopterSpec(
+            airframe = Airframes.regaH145,
+            rotorModel = RotorModel.DISC,
+        )
     }
 }

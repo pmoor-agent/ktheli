@@ -13,6 +13,19 @@ class HelicopterSpecTest {
         assertIs<BladeElementRotor>(HelicopterSpec.TREX_450.build().mainRotor)
         assertIs<FlappingDiscRotor>(HelicopterSpec.TREX_450_DISC.build().mainRotor)
         assertEquals(0.028, HelicopterSpec.TREX_450.build().airframe.tailRotor.position.y, 1e-12)
+        assertIs<BladeElementRotor>(HelicopterSpec.REGA_H145.build().mainRotor)
+        assertIs<FlappingDiscRotor>(HelicopterSpec.REGA_H145_DISC.build().mainRotor)
+        assertEquals(4, HelicopterSpec.REGA_H145.airframe.mainRotor.rotor.blades)
+        assertEquals(8, HelicopterSpec.REGA_H145.airframe.tailRotor.rotor.blades)
+    }
+
+    @Test
+    fun `the 650-class Rega H145 spools up and climbs cleanly on 6S`() {
+        val f = HeliFlight(HelicopterSpec.REGA_H145.build())
+        f.fly(10.0, Controls(collective = -0.2, flightMode = 1)) // spool up on the skids
+        assertTrue(f.heli.rotorRpm in 1400.0..1550.0, "650 scale headspeed in Idle 1: ${f.heli.rotorRpm}")
+        f.fly(2.0, Controls(collective = 0.55, flightMode = 1))
+        assertTrue(f.altitude > 1.5, "climbs cleanly: ${f.altitude} m")
     }
 
     @Test
