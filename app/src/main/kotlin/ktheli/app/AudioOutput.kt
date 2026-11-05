@@ -1,7 +1,9 @@
-package ktheli.app.sound
+package ktheli.app
 
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.audio.AudioDevice
+import ktheli.app.sound.HeliSynth
+import ktheli.app.sound.SoundParams
 
 /**
  * Streams a [HeliSynth] to the sound card on its own thread. The render thread hands over new [params] each

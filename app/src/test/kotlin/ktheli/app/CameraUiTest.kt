@@ -3,6 +3,7 @@ package ktheli.app
 import com.badlogic.gdx.Input.Keys
 import ktheli.app.harness.UiDriver
 import ktheli.app.harness.uiTest
+import ktheli.app.session.CameraMode
 import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -11,18 +12,18 @@ import kotlin.test.assertFalse
 class CameraUiTest {
     @Test
     fun `view menu, shortcut and dialog switch the camera`() = uiTest { ui ->
-        assertEquals(CameraMode.PILOT, ui.core.view.camera.mode)
+        assertEquals(CameraMode.PILOT, ui.core.session.camera.mode)
         ui.menu("View", "Follow")
-        assertEquals(CameraMode.FOLLOW, ui.core.view.camera.mode)
+        assertEquals(CameraMode.FOLLOW, ui.core.session.camera.mode)
         ui.press(Keys.V)
-        assertEquals(CameraMode.PILOT, ui.core.view.camera.mode)
+        assertEquals(CameraMode.PILOT, ui.core.session.camera.mode)
         ui.press(Keys.Z) // auto-zoom still has its shortcut
-        assertFalse(ui.core.view.camera.autoZoom)
+        assertFalse(ui.core.session.camera.autoZoom)
         ui.press(Keys.F5)
         ui.click("Camera/Follow")
-        assertEquals(CameraMode.FOLLOW, ui.core.view.camera.mode)
+        assertEquals(CameraMode.FOLLOW, ui.core.session.camera.mode)
         ui.click("Camera/Auto-zoom")
-        assertEquals(true, ui.core.view.camera.autoZoom)
+        assertEquals(true, ui.core.session.camera.autoZoom)
         ui.waitFor("Camera/Distance")
         ui.waitFor("Camera/Smoothing")
     }
@@ -36,8 +37,8 @@ class CameraUiTest {
                 ui.press(Keys.Z)
             }
             UiDriver(configDir = dir).use { ui ->
-                assertEquals(CameraMode.FOLLOW, ui.core.view.camera.mode)
-                assertFalse(ui.core.view.camera.autoZoom)
+                assertEquals(CameraMode.FOLLOW, ui.core.session.camera.mode)
+                assertFalse(ui.core.session.camera.autoZoom)
             }
         } finally {
             dir.toFile().deleteRecursively()

@@ -1,6 +1,10 @@
 package ktheli.app
 
 import ktheli.app.harness.UiDriver
+import ktheli.app.session.AppSettings
+import ktheli.app.session.HelicopterModels
+import ktheli.app.session.HelicopterVisual
+import ktheli.app.session.RotorBlur
 import ktheli.physics.heli.Helicopter
 import ktheli.physics.math.Vec3
 import java.nio.file.Files
@@ -42,7 +46,7 @@ class HelicopterModelsTest {
         val dir = Files.createTempDirectory("ktheli-legacy")
         try {
             Files.writeString(dir.resolve("settings.json"), """{"aircraft":"HELI_450_DISC"}""")
-            UiDriver(configDir = dir).use { ui -> assertEquals(HelicopterModels.TREX_450_DISC, ui.core.runner.model) }
+            UiDriver(configDir = dir).use { ui -> assertEquals(HelicopterModels.TREX_450_DISC, ui.core.session.runner.model) }
         } finally {
             dir.toFile().deleteRecursively()
         }

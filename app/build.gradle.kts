@@ -61,3 +61,42 @@ val checkUiAscii = tasks.register("checkUiAscii") {
 }
 
 tasks.named("check") { dependsOn(checkUiAscii) }
+
+/**
+ * The app's layers, bottom to top: `sound` (acoustics, synth), `session` (simulation, input, settings, camera:
+ * no toolkit), then `render` (libGDX) and `ui` (ImGui) side by side, each reading the session but not each
+ * other, and the root package `ktheli.app`, the shell that wires them to the window, devices and audio.
+ * Fails the build if a layer reaches above itself or into a toolkit it must not use.
+ */
+val checkLayers = tasks.register("checkLayers") {
+    group = "verification"
+    description = "Checks that app packages only depend on the layers below them."
+    val sources = fileTree("src/main/kotlin/ktheli/app")
+    val root = projectDir
+    inputs.files(sources)
+    doLast {
+        val shell = """ktheli\.app\.(?!(?:session|sound|render|ui)\b)\w"""
+        val gdx = """(?:com\.badlogic|org\.lwjgl)\."""
+        // Displays see the aircraft through session.AircraftView, not its concrete types.
+        val heli = """ktheli\.physics\.heli\."""
+        val rules = mapOf(
+            "sound" to listOf(gdx, """imgui\.""", """ktheli\.input\.""", """ktheli\.app\.(?!sound\.)"""),
+            "session" to listOf(gdx, """imgui\.""", """ktheli\.app\.(?:render|ui)\.""", shell),
+            "render" to listOf("""imgui\.""", """ktheli\.input\.""", """ktheli\.app\.(?:ui|sound)\.""", shell, heli),
+            "ui" to listOf(gdx, """ktheli\.app\.render\.""", shell, heli),
+        ).mapValues { (_, patterns) -> patterns.map { Regex("""\b$it""") } }
+        val literal = Regex(""""(?:[^"\\]|\\.)*"""")
+        val violations = sources.files.flatMap { file ->
+            val layer = file.relativeTo(root.resolve("src/main/kotlin/ktheli/app")).invariantSeparatorsPath.substringBefore('/', "")
+            val forbidden = rules[layer] ?: return@flatMap emptyList()
+            file.readLines().withIndex().filter { (_, line) ->
+                val code = line.trimStart()
+                !code.startsWith("package ") && !code.startsWith("//") && !code.startsWith("*") && !code.startsWith("/*") &&
+                    forbidden.any { it.containsMatchIn(literal.replace(line, "\"\"")) }
+            }.map { (i, line) -> "${file.relativeTo(root)}:${i + 1}: $layer must not use this\n    ${line.trim()}" }
+        }
+        if (violations.isNotEmpty()) throw GradleException("Layer check failed:\n" + violations.joinToString("\n"))
+    }
+}
+
+tasks.named("check") { dependsOn(checkLayers) }

@@ -4,14 +4,16 @@ import imgui.ImGui
 import imgui.extension.implot.ImPlot
 import imgui.gl3.ImGuiImplGl3
 import ktheli.app.AppCore
-import ktheli.app.AppHost
-import ktheli.app.GpuTimer
-import ktheli.app.Joystick
-import ktheli.app.Scene
-import ktheli.app.SettingsStore
-import ktheli.app.UiTrace
-import ktheli.app.WorldView
-import ktheli.app.applyKtheliStyle
+import ktheli.app.Joysticks
+import ktheli.app.render.GpuTimer
+import ktheli.app.render.Scene
+import ktheli.app.render.WorldView
+import ktheli.app.session.AppHost
+import ktheli.app.session.FrameProfiler
+import ktheli.app.session.SettingsStore
+import ktheli.app.ui.UiTrace
+import ktheli.app.ui.applyKtheliStyle
+import ktheli.input.Joystick
 import ktheli.input.ProfileStore
 import org.lwjgl.opengl.GL11
 import java.awt.image.BufferedImage
@@ -35,7 +37,7 @@ class ScriptedJoystick(
     val hats = IntArray(hatCount)
     var connected = true
 
-    fun snapshot() = Joystick(0, guid, name, axes.copyOf(), Joystick.withHatButtons(buttons, hats), hats.size)
+    fun snapshot() = Joystick(0, guid, name, axes.copyOf(), Joysticks.withHatButtons(buttons, hats), hats.size)
 }
 
 /**
@@ -112,7 +114,7 @@ class UiDriver(
             store = ProfileStore(this.configDir.resolve("input.json")),
             settingsStore = SettingsStore(this.configDir.resolve("settings.json")),
         )
-        if (gl) scene = Scene(core.view)
+        if (gl) scene = Scene()
         frame()
     }
 
@@ -137,9 +139,11 @@ class UiDriver(
         val timer = gpuTimer!!
         timer.begin()
         offscreen!!.begin()
-        WorldView.render(core, scene!!, width, height, width.toFloat(), height.toFloat(), DT.toFloat())
+        core.profiler.measure(FrameProfiler.Section.WORLD) {
+            WorldView.render(core.session, scene!!, core.ui.menuBarHeight, width, height, width.toFloat(), height.toFloat(), DT.toFloat())
+        }
         GL11.glViewport(0, 0, width, height)
-        core.profiler.measure(ktheli.app.FrameProfiler.Section.UI_RENDER) { gl3!!.renderDrawData(ImGui.getDrawData()) }
+        core.profiler.measure(FrameProfiler.Section.UI_RENDER) { gl3!!.renderDrawData(ImGui.getDrawData()) }
         timer.end()
         core.profiler.gpu(timer.poll())
     }

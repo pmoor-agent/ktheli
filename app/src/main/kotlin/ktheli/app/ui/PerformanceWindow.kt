@@ -1,4 +1,4 @@
-package ktheli.app
+package ktheli.app.ui
 
 import imgui.ImGui
 import imgui.extension.implot.ImPlot
@@ -7,6 +7,7 @@ import imgui.extension.implot.flag.ImPlotAxisFlags
 import imgui.extension.implot.flag.ImPlotCond
 import imgui.flag.ImGuiCond
 import imgui.type.ImBoolean
+import ktheli.app.session.FrameProfiler
 
 /** Where frame time goes (physics vs rendering, CPU vs GPU) and how much headroom is left. */
 class PerformanceWindow(private val profiler: () -> FrameProfiler, private val tickRateHz: () -> Int) {

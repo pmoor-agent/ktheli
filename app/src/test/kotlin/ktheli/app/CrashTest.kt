@@ -4,6 +4,8 @@ import com.badlogic.gdx.Input.Keys
 import ktheli.app.harness.UiDriver
 import ktheli.app.harness.glTest
 import ktheli.app.harness.uiTest
+import ktheli.app.session.FlyingFields
+import ktheli.app.session.SettingsStore
 import ktheli.physics.math.Vec3
 import java.nio.file.Paths
 import kotlin.test.Test
@@ -20,9 +22,9 @@ class CrashTest {
         ui.press(Keys.H) // throttle hold off
         ui.press(Keys.F) // idle up 1
         ui.seconds(9.0)
-        repeat(40) { if (ui.core.runner.crash == null) ui.hold(Keys.RIGHT, 0.1) } // until it goes over
-        assertNotNull(ui.core.runner.crash, "tipped over")
-        assertTrue(ui.core.runner.crashedSeconds < 0.2)
+        repeat(40) { if (ui.core.session.runner.crash == null) ui.hold(Keys.RIGHT, 0.1) } // until it goes over
+        assertNotNull(ui.core.session.runner.crash, "tipped over")
+        assertTrue(ui.core.session.runner.crashedSeconds < 0.2)
     }
 
     @Test
@@ -32,19 +34,19 @@ class CrashTest {
         ui.waitForText("Main rotor strike")
         assertTrue(ui.hasText("Resetting in"))
 
-        val tick = ui.core.runner.sim.tick
+        val tick = ui.core.session.runner.sim.tick
         ui.press(Keys.P) // can't pause (or unpause) a crash
-        assertFalse(ui.core.runner.paused)
+        assertFalse(ui.core.session.runner.paused)
         ui.seconds(0.5)
-        assertEquals(tick, ui.core.runner.sim.tick, "frozen")
+        assertEquals(tick, ui.core.session.runner.sim.tick, "frozen")
 
         ui.seconds(3.0) // auto reset after 3 s
-        assertNull(ui.core.runner.crash)
+        assertNull(ui.core.session.runner.crash)
         assertFalse(ui.hasText("CRASHED"))
-        assertEquals(1, ui.core.controls.flightMode, "still in idle up 1")
-        assertFalse(ui.core.controls.throttleHold, "throttle hold still off")
+        assertEquals(1, ui.core.session.controls.flightMode, "still in idle up 1")
+        assertFalse(ui.core.session.controls.throttleHold, "throttle hold still off")
         ui.seconds(2.0)
-        assertTrue(ui.core.runner.sim.tick > 0 && (ui.core.runner.sim.aircraft as ktheli.physics.heli.Helicopter).rotorRpm > 100, "spooling up again")
+        assertTrue(ui.core.session.runner.sim.tick > 0 && (ui.core.session.runner.sim.aircraft as ktheli.physics.heli.Helicopter).rotorRpm > 100, "spooling up again")
     }
 
     @Test
@@ -57,22 +59,22 @@ class CrashTest {
     @Test
     fun `without auto reset the crash stays until reset`() = uiTest { ui ->
         ui.menu("Sim", "After a crash", "Reset automatically")
-        assertFalse(ui.core.crashSettings.autoReset)
+        assertFalse(ui.core.session.crashSettings.autoReset)
         assertFalse(SettingsStore(ui.configDir.resolve("settings.json")).load().crash.autoReset)
         crash(ui)
         ui.seconds(6.0)
-        assertNotNull(ui.core.runner.crash)
+        assertNotNull(ui.core.session.runner.crash)
         ui.waitForText("R to reset")
         ui.press(Keys.R)
-        assertNull(ui.core.runner.crash)
-        assertEquals(1, ui.core.controls.flightMode)
+        assertNull(ui.core.session.runner.crash)
+        assertEquals(1, ui.core.session.controls.flightMode)
     }
 
     @Test
     fun `a crash plays an impact and silences the model`() = uiTest { ui ->
-        val before = ui.core.soundParams()
+        val before = ui.core.session.soundParams()
         crash(ui)
-        val after = ui.core.soundParams()
+        val after = ui.core.session.soundParams()
         assertEquals(before.impacts + 1, after.impacts)
         assertTrue(after.impactLevel > 0.3)
         assertEquals(0.0, after.rotorLevel + after.rotorNoise + after.washLevel + after.motorLevel + after.tailLevel)

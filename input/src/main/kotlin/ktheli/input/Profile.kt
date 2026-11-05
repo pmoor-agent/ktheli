@@ -5,7 +5,6 @@ import kotlinx.serialization.json.Json
 import ktheli.physics.sim.Controls
 import java.nio.file.Files
 import java.nio.file.Path
-import java.nio.file.Paths
 
 /** Pilot functions. The direction in [prompt] is the one that must produce a positive value. */
 enum class Channel(val prompt: String, val centeredByDefault: Boolean) {
@@ -13,6 +12,9 @@ enum class Channel(val prompt: String, val centeredByDefault: Boolean) {
     ROLL("Move ROLL (aileron) RIGHT", centeredByDefault = true),
     PITCH("Move PITCH (elevator) FORWARD", centeredByDefault = true),
     YAW("Move YAW (rudder) RIGHT", centeredByDefault = true),
+    ;
+
+    val label: String get() = name.lowercase()
 }
 
 @Serializable
@@ -104,7 +106,8 @@ data class InputConfig(
     fun withDefaultKeys() = copy(keyOverrides = emptyMap())
 }
 
-class ProfileStore(private val path: Path = defaultPath()) {
+/** Reads and writes the [InputConfig] at [path]; where that is is up to the application. */
+class ProfileStore(private val path: Path) {
     private val json = Json { prettyPrint = true; ignoreUnknownKeys = true }
 
     fun load(): InputConfig =
@@ -115,16 +118,5 @@ class ProfileStore(private val path: Path = defaultPath()) {
         val tmp = path.resolveSibling(path.fileName.toString() + ".tmp")
         Files.writeString(tmp, json.encodeToString(InputConfig.serializer(), config))
         Files.move(tmp, path, java.nio.file.StandardCopyOption.REPLACE_EXISTING, java.nio.file.StandardCopyOption.ATOMIC_MOVE)
-    }
-
-    companion object {
-        fun defaultPath(): Path = configDir().resolve("input.json")
-
-        /** `$XDG_CONFIG_HOME/ktheli`, defaulting to `~/.config/ktheli`. */
-        fun configDir(): Path {
-            val base = System.getenv("XDG_CONFIG_HOME")?.let { Paths.get(it) }
-                ?: Paths.get(System.getProperty("user.home"), ".config")
-            return base.resolve("ktheli")
-        }
     }
 }

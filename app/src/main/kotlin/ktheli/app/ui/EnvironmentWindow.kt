@@ -1,4 +1,4 @@
-package ktheli.app
+package ktheli.app.ui
 
 import imgui.ImGui
 import imgui.flag.ImGuiCond

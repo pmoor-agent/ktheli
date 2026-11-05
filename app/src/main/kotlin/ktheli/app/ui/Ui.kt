@@ -1,4 +1,4 @@
-package ktheli.app
+package ktheli.app.ui
 
 import imgui.ImColor
 import imgui.ImGui
@@ -9,41 +9,34 @@ import imgui.extension.implot.flag.ImPlotCond
 import imgui.flag.ImGuiCond
 import imgui.flag.ImGuiWindowFlags
 import imgui.type.ImBoolean
-import ktheli.app.sound.SoundSettings
+import ktheli.app.session.AppHost
+import ktheli.app.session.AppSession
+import ktheli.app.session.Binoculars
+import ktheli.app.session.CameraMode
+import ktheli.app.session.FlyingFields
+import ktheli.app.session.FrameProfiler
+import ktheli.app.session.HelicopterModels
 import ktheli.input.Action
 import ktheli.input.CalibrationSession
-import ktheli.physics.env.EnvironmentSettings
-import ktheli.physics.heli.Helicopter
+import ktheli.input.InputController
 import ktheli.physics.sim.Crash
-import ktheli.physics.sim.Controls
 
-/** Everything the UI can show or act on. */
-class UiContext(
-    val runner: SimRunner,
-    val input: InputController,
-    val view: ViewSettings,
-    val telemetry: Telemetry,
-    val controls: () -> Controls,
-    val host: AppHost,
-    val changeEnvironment: (EnvironmentSettings) -> Unit,
-    val selectAircraft: (HelicopterModel) -> Unit,
-    val changeCamera: (CameraSettings) -> Unit,
-    val selectField: (FlyingField) -> Unit,
-    val profiler: () -> FrameProfiler,
-    val sound: () -> SoundSettings,
-    val changeSound: (SoundSettings) -> Unit,
-    val crashSettings: () -> CrashSettings,
-    val changeCrashSettings: (CrashSettings) -> Unit,
-)
-
-/** Immediate-mode UI: call [draw] once per frame between ImGui newFrame/render. */
-class Ui(private val ctx: UiContext) {
+/**
+ * Immediate-mode UI: call [draw] once per frame between ImGui newFrame/render. It shows the [session] and owns
+ * only which windows are open ([toggle]); every other action, from a menu or a key, goes to [perform].
+ */
+class Ui(
+    private val session: AppSession,
+    private val host: AppHost,
+    profiler: () -> FrameProfiler,
+    private val perform: (Action) -> Unit,
+) {
     val showHud = ImBoolean(true)
     val showTelemetry = ImBoolean(false)
-    val controlsWindow = ControlsWindow(ctx.input, ctx.controls)
-    val environmentWindow = EnvironmentWindow({ ctx.runner.environment }, ctx.changeEnvironment)
-    val cameraWindow = CameraWindow({ ctx.view.camera }, ctx.changeCamera)
-    val performanceWindow = PerformanceWindow(ctx.profiler, { ctx.runner.sim.tickRateHz })
+    val controlsWindow = ControlsWindow(session.input, { session.controls }, { session.status.message })
+    val environmentWindow = EnvironmentWindow({ session.runner.environment }, session::changeEnvironment)
+    val cameraWindow = CameraWindow({ session.camera }, session::changeCamera)
+    val performanceWindow = PerformanceWindow(profiler, { session.runner.sim.tickRateHz })
     private val showDemo = ImBoolean(false)
     private var openAbout = false
 
@@ -51,14 +44,12 @@ class Ui(private val ctx: UiContext) {
     var menuBarHeight = 0f
         private set
 
-    private val helicopter: Helicopter? get() = ctx.runner.sim.aircraft as? Helicopter
-
     fun draw() {
-        ctx.input.flightModeCount = helicopter?.transmitter?.setup?.modes?.size ?: 1
         drawMenuBar()
-        if (showHud.get()) drawHud()
-        ctx.runner.crash?.let(::drawCrash)
-        if (ctx.view.camera.binoculars.enabled) drawBinocularFrame()
+        val statusOpacity = session.status.opacity.toFloat()
+        if (showHud.get() || statusOpacity > 0f) drawHud(full = showHud.get(), statusOpacity)
+        session.runner.crash?.let(::drawCrash)
+        if (session.camera.binoculars.enabled) drawBinocularFrame()
         controlsWindow.draw(menuBarHeight)
         environmentWindow.draw(menuBarHeight)
         cameraWindow.draw(menuBarHeight)
@@ -68,53 +59,23 @@ class Ui(private val ctx: UiContext) {
         drawAbout()
     }
 
-    /** Executes a press-action, whether it came from the menu, a key, or a controller button. */
-    fun perform(action: Action) {
+    /** Opens or closes the window [action] stands for; false if it isn't a window toggle. */
+    fun toggle(action: Action): Boolean {
         when (action) {
-            Action.PAUSE -> if (ctx.runner.crash == null) {
-                ctx.runner.paused = !ctx.runner.paused
-            } else {
-                ctx.input.showStatus("Crashed: ${shortcut(Action.RESET).ifEmpty { "reset" }} to start again")
-            }
-            Action.RESET -> reset()
-            Action.FLIGHT_MODE -> ctx.input.cycleFlightMode()
-            Action.THROTTLE_HOLD -> ctx.input.toggleThrottleHold()
             Action.CONTROLS_DIALOG -> controlsWindow.open.toggle()
             Action.ENVIRONMENT_DIALOG -> environmentWindow.open.toggle()
             Action.TELEMETRY -> showTelemetry.toggle()
             Action.PERFORMANCE -> performanceWindow.open.toggle()
             Action.HUD -> showHud.toggle()
-            Action.AUTO_ZOOM -> ctx.view.camera.let { ctx.changeCamera(it.copy(autoZoom = !it.autoZoom)) }
-            Action.CAMERA_MODE -> ctx.view.camera.let {
-                ctx.changeCamera(it.copy(mode = CameraMode.entries[(it.mode.ordinal + 1) % CameraMode.entries.size]))
-            }
             Action.CAMERA_DIALOG -> cameraWindow.open.toggle()
-            Action.BINOCULARS -> ctx.view.camera.let {
-                ctx.changeCamera(it.copy(binoculars = it.binoculars.copy(enabled = !it.binoculars.enabled)))
-            }
-            Action.SOUND -> ctx.sound().let { ctx.changeSound(it.copy(enabled = !it.enabled)) }
-            Action.SCREENSHOT -> ctx.host.requestScreenshot()
-            Action.NEXT_DEVICE -> ctx.input.selectNextDevice()
-            Action.QUIT -> ctx.host.exit()
-            Action.COLLECTIVE_ZERO -> ctx.input.digital.zeroCollective()
-            else -> {} // hold actions are polled, not performed
+            else -> return false
         }
+        return true
     }
 
     private fun ImBoolean.toggle() = set(!get())
 
-    /**
-     * Starts the flight over. The transmitter's switches stay where they are, as on a real radio, so after a
-     * crash you can take off again right away; [armSwitches] (a new model or field) goes back to throttle hold
-     * and the first flight mode.
-     */
-    fun reset(armSwitches: Boolean = false) {
-        ctx.runner.reset()
-        ctx.telemetry.clear()
-        if (armSwitches) ctx.input.resetSwitches()
-    }
-
-    private fun shortcut(action: Action) = ctx.input.keyFor(action)?.label().orEmpty()
+    private fun shortcut(action: Action) = session.input.keyLabel(action).orEmpty()
 
     private fun actionItem(label: String, action: Action, selected: Boolean = false) {
         if (Gui.menuItem(label, shortcut(action), selected)) perform(action)
@@ -125,28 +86,29 @@ class Ui(private val ctx: UiContext) {
         menuBarHeight = ImGui.getWindowHeight()
 
         if (Gui.beginMenu("Sim")) {
-            actionItem(if (ctx.runner.paused) "Resume" else "Pause", Action.PAUSE)
+            actionItem(if (session.runner.paused) "Resume" else "Pause", Action.PAUSE)
             actionItem("Reset", Action.RESET)
             if (Gui.beginMenu("After a crash")) {
-                val c = ctx.crashSettings()
-                if (Gui.menuItem("Reset automatically", "", c.autoReset)) ctx.changeCrashSettings(c.copy(autoReset = !c.autoReset))
-                Gui.slider("Delay", c.delaySeconds, 1.0, 10.0, "%.0f s")?.let { ctx.changeCrashSettings(c.copy(delaySeconds = it)) }
+                val c = session.crashSettings
+                if (Gui.menuItem("Reset automatically", "", c.autoReset)) session.changeCrashSettings(c.copy(autoReset = !c.autoReset))
+                Gui.slider("Delay", c.delaySeconds, 1.0, 10.0, "%.0f s")?.let { session.changeCrashSettings(c.copy(delaySeconds = it)) }
                 Gui.endMenu()
             }
             actionItem("Environment...", Action.ENVIRONMENT_DIALOG, environmentWindow.open.get())
             if (Gui.beginMenu("Sound")) {
-                val sound = ctx.sound()
+                val sound = session.sound
                 actionItem("Sound on", Action.SOUND, sound.enabled)
-                Gui.slider("Volume", 100 * sound.volume, 0.0, 100.0, "%.0f%%")?.let { ctx.changeSound(sound.copy(volume = it / 100)) }
+                Gui.slider("Volume", 100 * sound.volume, 0.0, 100.0, "%.0f%%")?.let { session.changeSound(sound.copy(volume = it / 100)) }
                 Gui.endMenu()
             }
             ImGui.separator()
-            actionItem("Throttle hold", Action.THROTTLE_HOLD, ctx.input.throttleHold)
-            helicopter?.let { heli ->
+            actionItem("Throttle hold", Action.THROTTLE_HOLD, session.input.throttleHold)
+            val modes = session.aircraft.flightModes
+            if (modes.isNotEmpty()) {
                 if (Gui.beginMenu("Flight mode")) {
-                    heli.transmitter.setup.modes.forEachIndexed { i, mode ->
-                        if (Gui.menuItem(mode.name, if (i == 0) shortcut(Action.FLIGHT_MODE) else "", i == ctx.input.flightMode)) {
-                            ctx.input.selectFlightMode(i)
+                    modes.forEachIndexed { i, mode ->
+                        if (Gui.menuItem(mode, if (i == 0) shortcut(Action.FLIGHT_MODE) else "", i == session.input.flightMode)) {
+                            session.input.selectFlightMode(i)
                         }
                     }
                     Gui.endMenu()
@@ -158,9 +120,8 @@ class Ui(private val ctx: UiContext) {
         }
         if (Gui.beginMenu("Aircraft")) {
             HelicopterModels.ALL.forEach { model ->
-                if (Gui.menuItem(model.name, "", model == ctx.runner.model)) {
-                    ctx.selectAircraft(model)
-                    reset(armSwitches = true)
+                if (Gui.menuItem(model.name, "", model == session.runner.model)) {
+                    session.selectAircraft(model)
                 }
                 if (ImGui.isItemHovered()) ImGui.setTooltip(model.description)
             }
@@ -168,9 +129,8 @@ class Ui(private val ctx: UiContext) {
         }
         if (Gui.beginMenu("Field")) {
             FlyingFields.ALL.forEach { field ->
-                if (Gui.menuItem(field.name, "", field == ctx.runner.field)) {
-                    ctx.selectField(field)
-                    reset(armSwitches = true)
+                if (Gui.menuItem(field.name, "", field == session.runner.field)) {
+                    session.selectField(field)
                 }
                 if (ImGui.isItemHovered()) ImGui.setTooltip(field.description)
             }
@@ -179,13 +139,13 @@ class Ui(private val ctx: UiContext) {
         if (Gui.beginMenu("Input")) {
             actionItem("Controls...", Action.CONTROLS_DIALOG, controlsWindow.open.get())
             ImGui.separator()
-            val joysticks = ctx.input.joysticks
+            val joysticks = session.input.joysticks
             if (joysticks.isEmpty()) {
                 Gui.textDisabled("No joystick connected - keyboard active")
             } else {
-                val active = ctx.input.active
+                val active = session.input.active
                 joysticks.forEach { j ->
-                    if (Gui.menuItem("${j.name}##${j.jid}", "", j == active)) ctx.input.selectDevice(j.guid)
+                    if (Gui.menuItem("${j.name}##${j.jid}", "", j == active)) session.input.selectDevice(j.guid)
                 }
             }
             Gui.endMenu()
@@ -197,9 +157,9 @@ class Ui(private val ctx: UiContext) {
             ImGui.separator()
             CameraMode.entries.forEachIndexed { i, mode ->
                 val shortcut = if (i == 0) shortcut(Action.CAMERA_MODE) else ""
-                if (Gui.menuItem(mode.label, shortcut, ctx.view.camera.mode == mode)) ctx.changeCamera(ctx.view.camera.copy(mode = mode))
+                if (Gui.menuItem(mode.label, shortcut, session.camera.mode == mode)) session.changeCamera(session.camera.copy(mode = mode))
             }
-            actionItem("Binoculars", Action.BINOCULARS, ctx.view.camera.binoculars.enabled)
+            actionItem("Binoculars", Action.BINOCULARS, session.camera.binoculars.enabled)
             actionItem("Camera settings...", Action.CAMERA_DIALOG, cameraWindow.open.get())
             ImGui.separator()
             actionItem("Save screenshot", Action.SCREENSHOT)
@@ -215,38 +175,44 @@ class Ui(private val ctx: UiContext) {
         ImGui.endMainMenuBar()
     }
 
-    private fun drawHud() {
+    /** The HUD: flight data when [full] (the HUD is switched on), then the latest status message while it fades. */
+    private fun drawHud(full: Boolean, statusOpacity: Float) {
         val flags = ImGuiWindowFlags.NoDecoration or ImGuiWindowFlags.AlwaysAutoResize or
             ImGuiWindowFlags.NoSavedSettings or ImGuiWindowFlags.NoFocusOnAppearing or
             ImGuiWindowFlags.NoNav or ImGuiWindowFlags.NoMove or ImGuiWindowFlags.NoMouseInputs
         ImGui.setNextWindowPos(10f, menuBarHeight + 10f)
-        ImGui.setNextWindowBgAlpha(0.35f)
+        ImGui.setNextWindowBgAlpha(if (full) 0.35f else 0.35f * statusOpacity)
         if (Gui.begin("##hud", flags = flags)) {
-            val sim = ctx.runner.sim
-            val body = sim.aircraft.body
-            Gui.text("t %.2f s   tick %d   %d fps".format(sim.time, sim.tick, ctx.host.fps))
-            Gui.text("alt %.2f m   speed %.1f m/s".format(-body.position.z, body.velocity.length()))
-            Gui.text(ctx.input.active?.let { "Input: ${it.name}" } ?: "Input: keyboard")
-            helicopter?.let { heli ->
-                val mode = heli.transmitter.setup.modes[ctx.input.flightMode.coerceIn(0, heli.transmitter.setup.modes.lastIndex)]
-                val target = heli.governorTargetRpm
-                val delta = if (target > 0.0) "  (%+.0f)".format(heli.rotorRpm - target) else ""
-                Gui.text("%s   headspeed %.0f rpm%s".format(mode.name, heli.rotorRpm, delta))
-                if (ctx.input.throttleHold) {
-                    val key = ctx.input.keyFor(Action.THROTTLE_HOLD)?.label()?.let { " - $it to release" }.orEmpty()
-                    Gui.textColored(1f, 0.5f, 0.2f, 1f, "THROTTLE HOLD$key")
-                }
-            }
-            val wind = ctx.runner.environment.wind
-            if (wind.speed > 0.0) {
-                val here = sim.environment.windAt(body.position).length()
-                Gui.text("Wind %.1f m/s from %s (%03.0f)   at heli %.1f m/s".format(
-                    wind.speed, EnvironmentWindow.compass(wind.fromDegrees), wind.fromDegrees, here))
-            }
-            if (ctx.runner.paused) Gui.textColored(1f, 0.8f, 0.2f, 1f, "PAUSED")
-            modePrompt()?.let { Gui.textColored(1f, 0.8f, 0.2f, 1f, it) }
+            if (full) drawFlightData()
+            if (statusOpacity > 0f) Gui.textColored(0.85f, 0.95f, 1f, statusOpacity, session.status.message)
         }
         Gui.end()
+    }
+
+    private fun drawFlightData() {
+        val sim = session.runner.sim
+        val body = sim.aircraft.body
+        Gui.text("t %.2f s   tick %d   %d fps".format(sim.time, sim.tick, host.fps))
+        Gui.text("alt %.2f m   speed %.1f m/s".format(-body.position.z, body.velocity.length()))
+        Gui.text(session.input.active?.let { "Input: ${it.name}" } ?: "Input: keyboard")
+        val aircraft = session.aircraft
+        aircraft.headspeed?.let { headspeed ->
+            val mode = aircraft.flightModes.getOrNull(session.input.flightMode)?.let { "$it   " }.orEmpty()
+            val delta = if (headspeed.targetRpm > 0.0) "  (%+.0f)".format(headspeed.rpm - headspeed.targetRpm) else ""
+            Gui.text("%sheadspeed %.0f rpm%s".format(mode, headspeed.rpm, delta))
+            if (session.input.throttleHold) {
+                val key = session.input.keyLabel(Action.THROTTLE_HOLD)?.let { " - $it to release" }.orEmpty()
+                Gui.textColored(1f, 0.5f, 0.2f, 1f, "THROTTLE HOLD$key")
+            }
+        }
+        val wind = session.runner.environment.wind
+        if (wind.speed > 0.0) {
+            val here = sim.environment.windAt(body.position).length()
+            Gui.text("Wind %.1f m/s from %s (%03.0f)   at heli %.1f m/s".format(
+                wind.speed, EnvironmentWindow.compass(wind.fromDegrees), wind.fromDegrees, here))
+        }
+        if (session.runner.paused) Gui.textColored(1f, 0.8f, 0.2f, 1f, "PAUSED")
+        modePrompt()?.let { Gui.textColored(1f, 0.8f, 0.2f, 1f, it) }
     }
 
     /** A banner in the middle of the view: what happened, and how to go again. */
@@ -262,9 +228,9 @@ class Ui(private val ctx: UiContext) {
             ImGui.setWindowFontScale(1f)
             Gui.text("%s at %.1f m/s".format(crash.impact.reason, crash.impact.speed))
             val key = shortcut(Action.RESET).ifEmpty { "Reset" }
-            val settings = ctx.crashSettings()
+            val settings = session.crashSettings
             if (settings.autoReset) {
-                val left = (settings.delaySeconds - ctx.runner.crashedSeconds).coerceAtLeast(0.0)
+                val left = (settings.delaySeconds - session.runner.crashedSeconds).coerceAtLeast(0.0)
                 Gui.textDisabled("Resetting in %.0f s - %s to reset now".format(kotlin.math.ceil(left), key))
             } else {
                 Gui.textDisabled("$key to reset")
@@ -276,7 +242,9 @@ class Ui(private val ctx: UiContext) {
     /** A frame and magnification label over the binocular inset (which the 3D renderer draws underneath). */
     private fun drawBinocularFrame() {
         val io = ImGui.getIO()
-        val r = Binoculars.layout(io.displaySizeX, io.displaySizeY - menuBarHeight, menuBarHeight, ctx.view.camera.binoculars)
+        val b = session.camera.binoculars
+        val viewHeight = io.displaySizeY - menuBarHeight
+        val r = Binoculars.layout(io.displaySizeX, viewHeight, menuBarHeight, b)
         val flags = ImGuiWindowFlags.NoDecoration or ImGuiWindowFlags.NoBackground or ImGuiWindowFlags.NoInputs or
             ImGuiWindowFlags.NoSavedSettings or ImGuiWindowFlags.NoFocusOnAppearing or ImGuiWindowFlags.NoNav
         ImGui.setNextWindowPos(r.x, r.y)
@@ -287,13 +255,13 @@ class Ui(private val ctx: UiContext) {
             frame.addRect(r.x - 1f, r.y - 1f, r.x + r.width + 1f, r.y + r.height + 1f, ImColor.rgba(20, 20, 24, 230), 0f, 0, 4f)
             frame.addRect(r.x, r.y, r.x + r.width, r.y + r.height, ImColor.rgba(235, 235, 240, 230), 0f, 0, 1.5f)
             ImGui.getWindowDrawList().addRectFilled(r.x, r.y, r.x + 150f, r.y + ImGui.getTextLineHeightWithSpacing() + 6f, ImColor.rgba(0, 0, 0, 120))
-            val m = ctx.view.binocularMagnification
-            Gui.textColored(1f, 1f, 1f, 0.95f, if (m > 0.0) "BINOCULARS x%.1f".format(m) else "BINOCULARS")
+            val m = Binoculars.inset(session.cameraPose, session.runner.model.visual.rotorRadius, b.framing, viewHeight.toDouble(), r.height.toDouble())
+            Gui.textColored(1f, 1f, 1f, 0.95f, "BINOCULARS x%.1f".format(m.magnification))
         }
         Gui.end()
     }
 
-    private fun modePrompt(): String? = when (val m = ctx.input.mode) {
+    private fun modePrompt(): String? = when (val m = session.input.mode) {
         is InputController.Mode.Calibrating -> when (m.session.phase) {
             CalibrationSession.Phase.CENTER -> "Calibrating: keep sticks centered..."
             CalibrationSession.Phase.EXTREMES -> "Calibrating: move every stick to all extremes, then Finish"
@@ -311,7 +279,7 @@ class Ui(private val ctx: UiContext) {
             Gui.end()
             return
         }
-        val t = ctx.telemetry
+        val t = session.telemetry
         val xs = t.timesArray()
         if (ImGui.beginTabBar("telemetryGroups")) {
             for (group in t.groups) {
@@ -343,7 +311,7 @@ class Ui(private val ctx: UiContext) {
             Gui.text("ktheli - an RC helicopter simulator")
             Gui.textDisabled("Kotlin | libGDX | Dear ImGui")
             ImGui.spacing()
-            Gui.text("Deterministic fixed-step physics at ${ctx.runner.sim.tickRateHz} Hz.")
+            Gui.text("Deterministic fixed-step physics at ${session.runner.sim.tickRateHz} Hz.")
             ImGui.spacing()
             if (Gui.button("Close", 120f, 0f)) ImGui.closeCurrentPopup()
             Gui.endPopup()

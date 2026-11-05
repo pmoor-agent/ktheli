@@ -3,6 +3,7 @@ package ktheli.app
 import com.badlogic.gdx.Input.Keys
 import ktheli.input.Action
 import ktheli.input.KeyChord
+import ktheli.input.KeyLayout
 
 /** Default keyboard bindings; user changes are stored as overrides in the input config. */
 object DefaultKeys {
@@ -36,14 +37,12 @@ object DefaultKeys {
     )
 }
 
-fun KeyChord.label(): String = buildString {
-    if (ctrl) append("Ctrl+")
-    if (shift) append("Shift+")
-    if (alt) append("Alt+")
-    append(Keys.toString(key) ?: "Key $key")
-}
-
-fun isModifierKey(keycode: Int) = keycode in setOf(
-    Keys.CONTROL_LEFT, Keys.CONTROL_RIGHT, Keys.SHIFT_LEFT, Keys.SHIFT_RIGHT, Keys.ALT_LEFT, Keys.ALT_RIGHT,
-    Keys.SYM,
-)
+/** libGDX key codes, for the toolkit-neutral input handling. */
+val GdxKeys = KeyLayout(
+    defaults = DefaultKeys.map,
+    escape = Keys.ESCAPE,
+    ctrl = setOf(Keys.CONTROL_LEFT, Keys.CONTROL_RIGHT),
+    shift = setOf(Keys.SHIFT_LEFT, Keys.SHIFT_RIGHT),
+    alt = setOf(Keys.ALT_LEFT, Keys.ALT_RIGHT),
+    otherModifiers = setOf(Keys.SYM),
+) { Keys.toString(it) ?: "Key $it" }

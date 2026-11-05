@@ -1,4 +1,4 @@
-package ktheli.app
+package ktheli.app.session
 
 import ktheli.physics.model.AircraftModel
 import ktheli.physics.sim.Controls

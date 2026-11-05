@@ -1,27 +1,19 @@
-package ktheli.app
+package ktheli.input
 
-import com.badlogic.gdx.Input.Keys
-import ktheli.input.Action
-import ktheli.input.AxisDetector
-import ktheli.input.ButtonDetector
-import ktheli.input.CalibrationSession
-import ktheli.input.Channel
-import ktheli.input.ChannelBinding
-import ktheli.input.DeviceProfile
-import ktheli.input.DigitalFlight
-import ktheli.input.InputConfig
-import ktheli.input.KeyChord
-import ktheli.input.ProfileStore
 import ktheli.physics.sim.Controls
 
 /**
  * Owns device selection, the binding/calibration workflows, keyboard and button bindings, and digital
- * flight input. Produces one [Frame] per rendered frame; key events come in through [keyDown].
+ * flight input. Produces one [Frame] per rendered frame; key events come in through [keyDown]. Toolkit-neutral:
+ * devices come from a [JoystickSource] and [KeyboardState], and what key codes mean from a [KeyLayout].
  */
 class InputController(
     private val store: ProfileStore,
     private val joystickSource: JoystickSource,
     private val keyboard: KeyboardState,
+    val keys: KeyLayout,
+    /** Where workflow results and errors go for the pilot to see; "" clears a stale message. */
+    private val report: (String) -> Unit = {},
 ) {
     sealed interface Mode {
         data object Fly : Mode
@@ -42,15 +34,18 @@ class InputController(
         private set
     var config: InputConfig = runCatching { store.load() }.getOrElse { InputConfig() }
         private set
-    var status: String = ""
-        private set
 
     val digital = DigitalFlight()
 
     /** Transmitter switches; part of [Controls], so they're simulation inputs like the sticks. */
     var flightMode = 0
         private set
-    var flightModeCount = 3
+    /** How many positions the flight-mode switch has: set from the current model's radio setup. */
+    var flightModeCount = 1
+        set(value) {
+            field = value.coerceAtLeast(1)
+            flightMode = flightMode.coerceAtMost(field - 1)
+        }
     /** Starts on, like arming a real heli: the motor can't start until the pilot releases it. */
     var throttleHold = true
         private set
@@ -63,7 +58,10 @@ class InputController(
     val activeProfile: DeviceProfile?
         get() = active?.let { config.devices[it.guid] }
 
-    fun keyFor(action: Action): KeyChord? = config.keyFor(action, DefaultKeys.map)
+    fun keyFor(action: Action): KeyChord? = config.keyFor(action, keys.defaults)
+
+    /** Name of the key bound to [action] (e.g. "Ctrl+Q"), or null if it has none. */
+    fun keyLabel(action: Action): String? = keyFor(action)?.let(keys::label)
 
     fun buttonFor(action: Action): Int? = activeProfile?.buttons?.get(action)
 
@@ -90,14 +88,14 @@ class InputController(
             is Mode.AssigningAxis -> j?.let { joy ->
                 m.detector.observe(joy.axes)?.let { detection ->
                     saveProfile(config.devices.getValue(joy.guid).withBinding(m.channel, detection))
-                    status = "${m.channel.label} -> axis ${detection.axis}${if (detection.reversed) " (reversed)" else ""}"
+                    report("${m.channel.label} -> axis ${detection.axis}${if (detection.reversed) " (reversed)" else ""}")
                     mode = Mode.Fly
                 }
             }
             is Mode.CapturingButton -> j?.let { joy ->
                 m.detector.observe(joy.buttons)?.let { button ->
                     saveProfile(config.devices.getValue(joy.guid).withButton(m.action, button))
-                    status = "${m.action.label} -> ${joy.buttonLabel(button)}"
+                    report("${m.action.label} -> ${joy.buttonLabel(button)}")
                     mode = Mode.Fly
                 }
             }
@@ -129,24 +127,31 @@ class InputController(
         return active?.buttons?.getOrNull(button) == true
     }
 
-    /** Handles a key press: completes a key capture, cancels workflows on Esc, or returns the bound action. */
-    fun keyDown(keycode: Int, ctrl: Boolean, shift: Boolean, alt: Boolean): Action? {
-        if (isModifierKey(keycode)) return null
+    /**
+     * Handles a key press (modifiers are read from the keyboard state): completes a key capture, cancels
+     * workflows on Esc, or returns the bound action.
+     */
+    fun keyDown(keycode: Int): Action? {
+        if (keys.isModifier(keycode)) return null
+        fun held(codes: Set<Int>) = codes.any(keyboard::isPressed)
+        val ctrl = held(keys.ctrl)
+        val shift = held(keys.shift)
+        val alt = held(keys.alt)
         when (val m = mode) {
             Mode.Fly -> {}
             is Mode.CapturingKey -> {
-                if (keycode == Keys.ESCAPE) {
+                if (keycode == keys.escape) {
                     cancel()
                 } else {
                     val chord = KeyChord(keycode, ctrl, shift, alt)
-                    save(config.withKey(m.action, chord, DefaultKeys.map))
-                    status = "${m.action.label} -> ${chord.label()}"
+                    save(config.withKey(m.action, chord, keys.defaults))
+                    report("${m.action.label} -> ${keys.label(chord)}")
                     mode = Mode.Fly
                 }
                 return null
             }
             else -> {
-                if (keycode == Keys.ESCAPE) cancel()
+                if (keycode == keys.escape) cancel()
                 return null
             }
         }
@@ -160,7 +165,7 @@ class InputController(
     fun startCalibration() {
         val j = active ?: return
         mode = Mode.Calibrating(CalibrationSession(j.axes.size))
-        status = ""
+        report("")
     }
 
     fun finishCalibration() {
@@ -168,13 +173,13 @@ class InputController(
         val profile = activeProfile ?: return
         saveProfile(profile.copy(calibration = m.session.finish()))
         mode = Mode.Fly
-        status = "Calibration saved"
+        report("Calibration saved")
     }
 
     fun startAssignAxis(channel: Channel) {
         val j = active ?: return
         mode = Mode.AssigningAxis(channel, AxisDetector(j.axes))
-        status = ""
+        report("")
     }
 
     fun clearAxis(channel: Channel) {
@@ -183,20 +188,20 @@ class InputController(
 
     fun startCaptureKey(action: Action) {
         mode = Mode.CapturingKey(action)
-        status = ""
+        report("")
     }
 
     fun clearKey(action: Action) = save(config.withoutKey(action))
 
     fun resetKeysToDefaults() {
         save(config.withDefaultKeys())
-        status = "Keyboard bindings reset to defaults"
+        report("Keyboard bindings reset to defaults")
     }
 
     fun startCaptureButton(action: Action) {
         val j = active ?: return
         mode = Mode.CapturingButton(action, ButtonDetector(j.buttons))
-        status = ""
+        report("")
     }
 
     fun clearButton(action: Action) {
@@ -206,7 +211,7 @@ class InputController(
     fun cancel() {
         if (mode == Mode.Fly) return
         mode = Mode.Fly
-        status = "Cancelled"
+        report("Cancelled")
     }
 
     fun selectDevice(guid: String) = save(config.copy(activeGuid = guid))
@@ -240,20 +245,14 @@ class InputController(
         flightMode = 0
     }
 
-    fun showStatus(message: String) {
-        status = message
-    }
-
     private fun saveProfile(profile: DeviceProfile) = save(config.copy(devices = config.devices + (profile.guid to profile)))
 
     private fun save(newConfig: InputConfig) {
         config = newConfig
-        runCatching { store.save(newConfig) }.onFailure { status = "Could not save input config: ${it.message}" }
+        runCatching { store.save(newConfig) }.onFailure { report("Could not save input config: ${it.message}") }
     }
 
     companion object {
         const val CENTER_SECONDS = 1.5
     }
 }
-
-val Channel.label: String get() = name.lowercase()

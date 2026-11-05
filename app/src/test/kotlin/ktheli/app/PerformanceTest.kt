@@ -1,9 +1,10 @@
 package ktheli.app
 
 import com.badlogic.gdx.Input.Keys
-import ktheli.app.FrameProfiler.Section
 import ktheli.app.harness.glTest
 import ktheli.app.harness.uiTest
+import ktheli.app.session.FrameProfiler
+import ktheli.app.session.FrameProfiler.Section
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull

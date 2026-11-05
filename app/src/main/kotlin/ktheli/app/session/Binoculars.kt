@@ -1,4 +1,4 @@
-package ktheli.app
+package ktheli.app.session
 
 import kotlinx.serialization.Serializable
 import kotlin.math.atan
@@ -57,6 +57,19 @@ object Binoculars {
         val fov = Math.toDegrees(2.0 * atan(halfHeight / distance.coerceAtLeast(0.1)))
         val atMostUnity = Math.toDegrees(2.0 * atan(tan(Math.toRadians(mainFov) / 2) * insetHeight / mainHeight))
         return fov.coerceIn(0.3, atMostUnity)
+    }
+
+    /** The inset's vertical field of view (degrees) and how much it magnifies, see [fov] and [magnification]. */
+    data class Inset(val fovDegrees: Double, val magnification: Double)
+
+    /**
+     * The inset for the main camera at [pose], framing a model of [rotorRadius]. [mainHeight] and [insetHeight]
+     * are the heights of the 3D view and the inset in the same unit (pixels or logical pixels).
+     */
+    fun inset(pose: CameraPose, rotorRadius: Double, framing: Double, mainHeight: Double, insetHeight: Double): Inset {
+        val distance = (pose.target - pose.position).length()
+        val fov = fov(distance, rotorRadius, framing, pose.fovDegrees, mainHeight, insetHeight)
+        return Inset(fov, magnification(pose.fovDegrees, mainHeight, fov, insetHeight))
     }
 
     /**

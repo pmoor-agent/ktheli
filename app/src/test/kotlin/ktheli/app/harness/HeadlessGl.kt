@@ -31,7 +31,7 @@ import java.awt.image.BufferedImage
  * An OpenGL context without any window system: Mesa's EGL "surfaceless" platform, rendering into offscreen
  * framebuffers. Works on a GPU or, with `LIBGL_ALWAYS_SOFTWARE=1` (the test task's default), in software via
  * llvmpipe, so it runs on machines and CI runners without a display. Also brings up enough of libGDX
- * (headless backend for `Gdx.app`/`Gdx.graphics`, real GL and file access) to run the app's [ktheli.app.Scene].
+ * (headless backend for `Gdx.app`/`Gdx.graphics`, real GL and file access) to run the app's [ktheli.app.render.Scene].
  *
  * One context per JVM, current on the thread that first calls [ensure]; JUnit runs tests on one thread.
  */

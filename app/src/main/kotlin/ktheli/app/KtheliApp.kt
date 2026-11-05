@@ -7,9 +7,14 @@ import com.badlogic.gdx.graphics.GL20
 import com.badlogic.gdx.graphics.Pixmap
 import com.badlogic.gdx.graphics.PixmapIO
 import com.badlogic.gdx.utils.ScreenUtils
-import ktheli.app.sound.AudioOutput
+import ktheli.app.render.GpuTimer
+import ktheli.app.render.Scene
+import ktheli.app.render.WorldView
+import ktheli.app.session.AppHost
+import ktheli.app.session.ConfigPaths
+import ktheli.app.session.FrameProfiler
 import ktheli.app.sound.SoundParams
-import ktheli.input.ProfileStore
+import ktheli.app.ui.ControlsWindow
 import java.nio.file.Files
 
 /** The windowed application: [AppCore] plus the GL scene and the ImGui renderer. */
@@ -40,11 +45,11 @@ class KtheliApp : ApplicationAdapter() {
         Gdx.app.log("ktheli", "GL: " + Gdx.gl.glGetString(GL20.GL_RENDERER) + " / " + Gdx.gl.glGetString(GL20.GL_VERSION))
         core = AppCore(Joysticks, GdxKeyboard, host)
         gpuTimer = GpuTimer()
-        scene = Scene(core.view)
+        scene = Scene()
         audio = AudioOutput.open()
-        if (audio == null) core.input.showStatus("No sound output available")
-        val configDir = ProfileStore.configDir().also { Files.createDirectories(it) }
-        imgui = ImGuiLayer(configDir.resolve("imgui.ini"))
+        if (audio == null) core.session.status.show("No sound output available")
+        Files.createDirectories(ConfigPaths.dir)
+        imgui = ImGuiLayer(ConfigPaths.imguiIni)
         // Dev hook for screenshots: KTHELI_SHOW=controls[:sticks|buttons|monitor],telemetry
         System.getenv("KTHELI_SHOW")?.split(',')?.forEach {
             when (it.trim()) {
@@ -81,19 +86,24 @@ class KtheliApp : ApplicationAdapter() {
         Gdx.gl.glViewport(0, 0, bw, bh)
         Gdx.gl.glClearColor(0.55f, 0.72f, 0.92f, 1f)
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT or GL20.GL_DEPTH_BUFFER_BIT)
-        WorldView.render(core, scene, bw, bh, Gdx.graphics.width.toFloat(), Gdx.graphics.height.toFloat(), frameSeconds.toFloat())
+        core.profiler.measure(FrameProfiler.Section.WORLD) {
+            WorldView.render(
+                core.session, scene, core.ui.menuBarHeight, bw, bh,
+                Gdx.graphics.width.toFloat(), Gdx.graphics.height.toFloat(), frameSeconds.toFloat(),
+            )
+        }
         Gdx.gl.glViewport(0, 0, bw, bh)
 
         core.profiler.measure(FrameProfiler.Section.UI_RENDER) { imgui.endFrame() }
         gpuTimer.end()
         core.profiler.gpu(gpuTimer.poll())
         core.profiler.endFrame(frameSeconds)
-        audio?.params = if (minimized) SoundParams.SILENT else core.soundParams()
+        audio?.params = if (minimized) SoundParams.SILENT else core.session.soundParams()
 
         elapsed += frameSeconds
         if (screenshotRequested) {
             screenshotRequested = false
-            core.input.showStatus("Saved " + saveScreenshot("ktheli-%d.png".format(System.currentTimeMillis())))
+            core.session.status.show("Saved " + saveScreenshot("ktheli-%d.png".format(System.currentTimeMillis())))
         }
         if (autoScreenshot != null && elapsed >= autoScreenshotAfter) {
             saveScreenshot(autoScreenshot)

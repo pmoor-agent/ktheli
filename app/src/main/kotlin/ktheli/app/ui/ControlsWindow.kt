@@ -1,4 +1,4 @@
-package ktheli.app
+package ktheli.app.ui
 
 import imgui.ImGui
 import imgui.flag.ImGuiCol
@@ -9,10 +9,15 @@ import imgui.type.ImBoolean
 import ktheli.input.Action
 import ktheli.input.CalibrationSession
 import ktheli.input.Channel
+import ktheli.input.InputController
 import ktheli.physics.sim.Controls
 
 /** The "Controls" dialog: stick channels and calibration, key/button bindings, and a live device monitor. */
-class ControlsWindow(private val input: InputController, private val controls: () -> Controls) {
+class ControlsWindow(
+    private val input: InputController,
+    private val controls: () -> Controls,
+    private val status: () -> String,
+) {
     val open = ImBoolean(false)
     private var selectTab: String? = null
 
@@ -40,9 +45,10 @@ class ControlsWindow(private val input: InputController, private val controls: (
                 ImGui.endTabBar()
                 selectTab = null
             }
-            if (input.status.isNotEmpty()) {
+            val message = status()
+            if (message.isNotEmpty()) {
                 ImGui.separator()
-                Gui.text(input.status)
+                Gui.text(message)
             }
         }
         Gui.end()
@@ -196,7 +202,7 @@ class ControlsWindow(private val input: InputController, private val controls: (
         ImGui.tableNextColumn()
         bindingCell(
             id = "key",
-            label = input.keyFor(action)?.label(),
+            label = input.keyLabel(action),
             capturing = (input.mode as? InputController.Mode.CapturingKey)?.action == action,
             prompt = "press a key...",
             enabled = true,
