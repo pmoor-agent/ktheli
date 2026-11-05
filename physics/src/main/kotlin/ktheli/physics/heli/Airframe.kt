@@ -147,6 +147,16 @@ data class CollisionParams(
             boom = listOf(Vec3(-0.20, 0.0, -0.03), Vec3(-0.33, 0.0, -0.03)),
             fin = listOf(Vec3(-0.50, 0.0, 0.07), Vec3(-0.49, 0.0, -0.10)),
         )
+
+        /** Scale fuselage, high tail boom and Fenestron shroud of a 650-class Airbus H145. */
+        val regaH145 = CollisionParams(
+            fuselage = buildList {
+                for (x in listOf(-0.32, 0.30)) for (y in listOf(-0.145, 0.145)) for (z in listOf(-0.18, 0.12)) add(Vec3(x, y, z))
+                add(Vec3(0.43, 0.0, 0.05)) // radar nose
+            },
+            boom = listOf(Vec3(-0.45, 0.0, -0.06), Vec3(-0.74, 0.0, -0.08)),
+            fin = listOf(Vec3(-0.92, 0.0, 0.11), Vec3(-0.98, 0.0, -0.43)),
+        )
     }
 }
 
@@ -233,6 +243,73 @@ object Airframes {
                 damping = 0.7 * 2.0 * DMath.sqrt(perContact / 0.01 * mass / 4),
                 friction = 0.6,
             ),
+        )
+    }
+
+    /**
+     * A 650-class scale Airbus H145 (Rega rescue helicopter) on 6S: heavier fiberglass fuselage,
+     * 4-blade hingeless main rotor head and 8-blade Fenestron shrouded tail rotor.
+     */
+    val regaH145: Airframe = run {
+        val mass = 4.2
+        val skidDrop = 0.19
+        val perContact = mass * 9.81 / 4
+        Airframe(
+            name = "Airbus H145 Rega (650 scale, 6S)",
+            mass = mass,
+            inertia = Mat3.diagonal(0.095, 0.260, 0.230),
+            mainRotor = MainRotorParams(
+                rotor = RotorParams(radius = 0.72, chord = 0.048, blades = 4, liftSlope = 5.5, profileDrag = 0.013),
+                hubHeight = 0.24,
+                hubStiffnessStatic = 20.0,
+                hubStiffnessCentrifugal = 80.0,
+                referenceSpeed = 157.0,
+                lockNumber = 3.3,
+                inertia = 0.110,
+                bladeMass = 0.145,
+                rootCutout = 0.090,
+                flapSpring = 74.0,
+                flapDamping = 0.025,
+                frictionTorque = 0.08,
+                viscousTorque = 0.06,
+            ),
+            tailRotor = TailRotorParams(
+                rotor = RotorParams(radius = 0.115, chord = 0.018, blades = 8, liftSlope = 5.0, profileDrag = 0.015),
+                position = Vec3(-0.90, 0.0, -0.10),
+                gearRatio = 4.6,
+                pitchOffset = 5.0.deg,
+                pitchPerServo = 25.0.deg,
+            ),
+            swash = SwashParams(pitchPerServo = 18.0.deg),
+            motor = MotorParams(kv = 850.0, resistance = 0.020, noLoadCurrent = 2.2, gearRatio = 9.0),
+            battery = BatteryParams(cells = 6, capacityAh = 5.0, internalResistance = 0.018),
+            esc = EscParams(
+                governorMaxRpm = 2000.0,
+                governorP = 0.004,
+                governorI = 0.025,
+                spoolUpSeconds = 10.0,
+                bailoutSeconds = 2.0,
+            ),
+            cyclicServo = ServoParams(secondsPer60 = 0.11, frameRateHz = 200.0),
+            tailServo = ServoParams(secondsPer60 = 0.05, frameRateHz = 333.0),
+            fuselage = FuselageParams(
+                dragAreaX = 0.045,
+                dragAreaY = 0.160,
+                dragAreaZ = 0.140,
+                finArea = 0.028,
+                finSideForceCoefficient = 1.4,
+                finPosition = Vec3(-0.90, 0.0, -0.16),
+            ),
+            skids = SkidParams(
+                contacts = listOf(
+                    Vec3(0.20, 0.165, skidDrop), Vec3(0.20, -0.165, skidDrop),
+                    Vec3(-0.14, 0.165, skidDrop), Vec3(-0.14, -0.165, skidDrop),
+                ),
+                stiffness = perContact / 0.01, // 1 cm static sag
+                damping = 0.7 * 2.0 * DMath.sqrt(perContact / 0.01 * mass / 4),
+                friction = 0.6,
+            ),
+            collision = CollisionParams.regaH145,
         )
     }
 }

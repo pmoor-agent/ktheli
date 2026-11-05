@@ -25,15 +25,16 @@ class HelicopterModelsTest {
     }
 
     @Test
-    fun `the T-Rex visual takes its hubs and size from its physics airframe`() {
-        val model = HelicopterModels.TREX_450
-        val visual = assertIs<HelicopterVisual.Obj>(model.visual)
-        val airframe = model.spec!!.airframe
-        assertEquals(Vec3(0.0, 0.0, -airframe.mainRotor.hubHeight), visual.mainHub)
-        assertEquals(airframe.tailRotor.position, visual.tailHub)
-        assertEquals(airframe.mainRotor.rotor.radius, visual.rotorRadius)
-        assertEquals(0.028, airframe.tailRotor.position.y, 1e-12) // on the right of the boom, as modelled
-        assertIs<Helicopter>(model.create(Vec3.ZERO))
+    fun `the T-Rex and Rega H145 visuals take their hubs and size from their physics airframes`() {
+        for (model in listOf(HelicopterModels.TREX_450, HelicopterModels.REGA_H145)) {
+            val visual = assertIs<HelicopterVisual.Obj>(model.visual)
+            val airframe = model.spec!!.airframe
+            assertEquals(Vec3(0.0, 0.0, -airframe.mainRotor.hubHeight), visual.mainHub)
+            assertEquals(airframe.tailRotor.position, visual.tailHub)
+            assertEquals(airframe.mainRotor.rotor.radius, visual.rotorRadius)
+            assertIs<Helicopter>(model.create(Vec3.ZERO))
+        }
+        assertEquals(0.028, HelicopterModels.TREX_450.spec!!.airframe.tailRotor.position.y, 1e-12)
     }
 
     @Test
